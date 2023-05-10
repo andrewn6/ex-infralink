@@ -4,11 +4,45 @@ pub mod services;
 pub mod shared_config;
 
 use dotenv::dotenv;
-pub mod scale;
-use crate::scale::scale::main as scaler;
 
-fn main() {
-	// Load environment variables into runtime
+mod routes {
+    pub mod instance {
+        pub mod create;
+    }
+}
+
+mod utils {
+    pub mod error;
+}
+
+use routes::instance::create::create_instance;
+
+use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder};
+
+#[get("/")]
+async fn hello() -> impl Responder {
+    HttpResponse::Ok().body("Hello world!")
+}
+
+#[post("/echo")]
+async fn echo(req_body: String) -> impl Responder {
+    HttpResponse::Ok().body(req_body)
+}
+
+async fn manual_hello() -> impl Responder {
+    HttpResponse::Ok().body("Hey there!")
+}
+
+#[actix_web::main]
+async fn main() -> std::io::Result<()> {
 	dotenv().unwrap();
-	// scaler();
+    HttpServer::new(|| {
+        App::new()
+            .service(hello)
+            .service(echo)
+            .route("/hey", web::get().to(manual_hello))
+    })
+    .bind(("127.0.0.1", 7000))?
+    .run()
+    .await
 }

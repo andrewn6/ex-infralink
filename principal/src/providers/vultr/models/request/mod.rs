@@ -1,4 +1,4 @@
 mod bandwidth;
 pub mod instance;
-mod plan;
+pub(crate) mod plan;
 pub mod region;

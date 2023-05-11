@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use actix_web::{web, HttpResponse, Responder, Result};
+use actix_web::{web, HttpResponse, Responder};
 use serde::{Deserialize};
 
 use crate::providers::vultr::models::request::instance::InstanceBuilder;
@@ -40,19 +40,20 @@ struct InstanceParams {
 
 pub fn create_instance(data: web::Json<InstanceParams>, config: web::Data<Arc<SharedConfig>>) -> impl Responder {
     let params = data.into_inner();
-    let shared_config = config.get_ref().clone();
+    let shared_config = config.into_inner();
+
 
     let instance = InstanceBuilder::new()
-        .region(params.region)
-        .plan(params.plan)
-        .os_id(params.os_id)
-        .ipxe_chain_url(params.ipxe_chain_url.unwrap_or_default())
-        .iso_id(params.iso_id.unwrap_or_default())
-        .script_id(params.script_id.unwrap_or_default())
-        .build(shared_config.clone());
-
-     match instance {
-        Ok(instance) => Ok(HttpResponse::Ok().json(instance)),
-        Err(e) => Err(ServiceError::from(e)),
-    }
+         .region(params.region)
+         .plan(params.plan)
+         .os_id(params.os_id)
+         .ipxe_chain_url(params.ipxe_chain_url.unwrap_or_default())
+         .iso_id(params.iso_id.unwrap_or_default())
+         .script_id(params.script_id.unwrap_or_default())
+         .build(Arc::clone(&shared_config));
+ 
+      match instance {
+         Ok(instance) => Ok(HttpResponse::Ok().json(instance)),
+         Err(e) => Err(ServiceError::from(e)),
+     }
 }

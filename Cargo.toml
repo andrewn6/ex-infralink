@@ -7,7 +7,8 @@ members = [
   "services/ping-server",   # Ping server
   "services/registry",  # Pushes/Pulls images to our registry
   "services/builder" ,   # Builds via nixpacks
-  "services/runner" # Runner service
+  "services/runner", # Runner service
+  "services/scaler" # Scaler service
 ]
 
 [profile.release]

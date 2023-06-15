@@ -1,52 +1,91 @@
-use std::{env, task::Context};
+use prometheus::{TextEncoder, Encoder};
+use ratelimit_meter::{DirectRateLimiter, GCRA};
+use reqwest::{Client, Error, header};
+use serde::{Deserialize, Serialize};
+use std::env;
+use std::net::SocketAddr;
+use std::sync::Arc;
+use warp::{Filter, reject};
+use warp::http::Response;
+use dotenv_codegen::dotenv;
 
-use juniper::{EmptyMutation, EmptySubscription, RootNode, Context};
-use warp::{http::Response, Filter};
+const VULTR_API_KEY: &str = dotenv!("VULTR_API_KEY");
 
-struct Query;
+const PROMETHEUS_ADDR: &str = dotenv!("PROMETHEUS_ADDR");
 
-#[juniper::graphql_object]
-impl Query {
-    fn hello() -> &str {
-        "Hello, world!"
-    }
+const CONTAINER_THRESHOLD: usize = 2; // Number of containers to create when scaling
+
+#[derive(Debug, Deserialize)]
+struct Instance {
+	id: String,
+	name: String,
+	// ... add rest
 }
 
-type Schema = RootNode<'static, juniper::OperationType, EmptyMutation<Box<dyn juniper::Context>>, EmptySubscription<Box<dyn juniper::Context>>>;
+#[derive(Debug)]
+struct InvalidParameter;
 
-fn schema() -> Schema {
-    Schema::new(Query, EmptyMutation::new(), EmptySubscription::new())
+impl reject::Reject for InvalidParameter {}
+
+#[derive(Debug, Deserialize)]
+struct CreateInstanceResponse {
+	instance: Instance,
+}
+
+#[derive(Debug, Deserialize)]
+struct CreateInstancePayload {
+	region: String,
+	plan: String,
 }
 
 #[tokio::main]
-async fn main() {
-	env::set_var("RUST_LOG", "warp_server");
-	env_logger::init();
-
-	let log = warp::log("warp_server");
-
-	let homepage = warp::path::end().map(|| {
+async fn main() -> Result<(), Error> {
+	let prometheus_addr = env::var("PROMETHEUS_ADDR").unwrap_or_else(|_| PROMETHEUS_ADDR.to_string());
+	let prometheus_metrics = warp::path("metrics").map(|| {
+		let encoder = TextEncoder::new();
+		let metrics_families = prometheus::gather();
+		let mut buffer = vec![];
+		encoder.encode(&metrics_families, &mut buffer).unwrap();
 		Response::builder()
-			.header("content-type", "text/html")
-			.body(format!(
-				"<h1>Infralink Scaler</h1> \
-				 GraphQL API at /graphql."
-			))
+			.header("Content-Type", encoder.format_type())
+			.body(buffer)
 	});
 	
-	log("Listening on 127.0.0.1:8087");
+	// let rate_limiter = Arc::new(DirectRateLimiter::<GCRA>::per_second(std::num::NonZeroU32::new(10).unwrap()));
 
-	let state = warp::any().map(move || Context::new());
-	let graphql_filter = juniper_warp::make_graphql_filter(schema(), state.boxed());
+	let server_port: u16 = 8087;
+	let server_address: String = format!("0.0.0.0:{}", server_port);
 
-	warp::serve(
-		warp::get()
-		.and(warp::path("graphiql"))
-		.and(juniper_warp::graphiql_filter("/graphql", None))
-		.or(homepage)
-		.or(warp::path("graphql").and(graphql_filter))
-		.with(log),
-	)
-	.run(([127, 0, 0, 1], 8087))
-	.await;
+	let health_check_route = warp::path("health")
+        .and(warp::get())
+        .map(warp::reply);
+	let hello_route = warp::path("hello")
+    	.and(warp::get())
+    	.and(warp::path::end())
+    	.and(warp::any().map(|| "Hello, World!"));
+
+	let routes = health_check_route
+		.or(hello_route)
+		.or(prometheus_metrics);
+
+	warp::serve(routes).run(server_address.parse::<SocketAddr>().unwrap());
+
+	Ok(())
 }
+
+/* 
+fn with_rate_limit(
+    rate_limiter: Arc<DirectRateLimiter<GCRA>>,
+)  {
+    warp::any()
+        .and_then(move || {
+            let rate_limiter = rate_limiter.clone();
+            async move {
+                if rate_limiter.check().is_err() {
+                    return Err(warp::reject::custom(InvalidParameter));
+                }
+                Ok(())
+            }
+        });
+}
+*/

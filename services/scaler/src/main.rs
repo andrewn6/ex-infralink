@@ -1,10 +1,10 @@
 use prometheus::{TextEncoder, Encoder};
-use ratelimit_meter::{DirectRateLimiter, GCRA};
-use reqwest::{Client, Error, header};
-use serde::{Deserialize, Serialize};
+
+use reqwest::{Error};
+use serde::{Deserialize};
 use std::env;
 use std::net::SocketAddr;
-use std::sync::Arc;
+
 use warp::{Filter, reject};
 use warp::http::Response;
 use dotenv_codegen::dotenv;
@@ -38,9 +38,32 @@ struct CreateInstancePayload {
 	plan: String,
 }
 
+async fn create_container(image: &str) -> Result<(), Box<dyn Error>> {
+	let docker = Docker::new();
+
+	let options = ContainerOptions::builder(image)
+		.auto_remove(true)
+		.build();
+	
+	docker.containers().create(&options).await?;
+
+	Ok(())
+}
+
+async fn delete_container(container_id: &str) -> Result<(), Box<dyn Error>> {
+	let docker = Docker::new();
+
+    docker.containers()
+        .get(container_id)
+        .delete()
+        .await?;
+
+    Ok(())	
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-	let prometheus_addr = env::var("PROMETHEUS_ADDR").unwrap_or_else(|_| PROMETHEUS_ADDR.to_string());
+	let _prometheus_addr = env::var("PROMETHEUS_ADDR").unwrap_or_else(|_| PROMETHEUS_ADDR.to_string());
 	let prometheus_metrics = warp::path("metrics").map(|| {
 		let encoder = TextEncoder::new();
 		let metrics_families = prometheus::gather();
@@ -52,10 +75,6 @@ async fn main() -> Result<(), Error> {
 	});
 	
 	// let rate_limiter = Arc::new(DirectRateLimiter::<GCRA>::per_second(std::num::NonZeroU32::new(10).unwrap()));
-
-	let server_port: u16 = 8087;
-	let server_address: String = format!("0.0.0.0:{}", server_port);
-
 	let health_check_route = warp::path("health")
         .and(warp::get())
         .map(warp::reply);
@@ -68,7 +87,10 @@ async fn main() -> Result<(), Error> {
 		.or(hello_route)
 		.or(prometheus_metrics);
 
-	warp::serve(routes).run(server_address.parse::<SocketAddr>().unwrap());
+	let server_address = ([127, 0, 0, 1], 8087);
+    println!("Server running at http://localhost:8087");
+
+    warp::serve(routes).run(server_address).await;
 
 	Ok(())
 }

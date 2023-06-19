@@ -10,6 +10,8 @@ members = [
   "services/runner" # Runner service
 ]
 
+incremental = true
+
 [profile.release]
 strip = true      # Automatically strip symbols from the binary.
 opt-level = "z"   # Optimize for size.

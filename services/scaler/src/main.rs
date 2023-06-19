@@ -1,9 +1,11 @@
 use prometheus::{TextEncoder, Encoder};
 
-use reqwest::{Error};
 use serde::{Deserialize};
+use tokio::time::{sleep, Duration};
 use std::env;
+use std::error::Error;
 use std::net::SocketAddr;
+use shiplift::{Docker, ContainerListOptions, ContainerOptions};
 
 use warp::{Filter, reject};
 use warp::http::Response;
@@ -38,6 +40,45 @@ struct CreateInstancePayload {
 	plan: String,
 }
 
+async fn track_container_stats() -> Result<(), Box<dyn Error>> {
+	let docker = Docker::new();
+	let options = ContainerListOptions::builder()
+		.all()
+		.build();
+	loop {
+		let containers = docker.containers().list(&options).await?;
+
+		for container in containers {
+			let stats = docker.containers().get(&container.id).stats().await?;
+
+			if let Some(cpu_stats) = stats.cpu_stats {
+				let cpu_percent = calculate_cpu_percent(&cpu_stats);
+				println!("Container ID: {}", container.id);
+				println!("CPU Usage: {}%", cpu_percent);
+
+			}
+			if let Some(memory_stats) = stats.memory_stats {
+				let memory_usage = memory_stats.usage as f64;
+				println!("Memory usage: {} bytes". memory_usage);
+			}
+		}
+
+		sleep(Duration::from_secs(60)).await;
+	}
+}
+
+fn calculate_cpu_percent(cpu_stats: &shiplift::rep::CpuStats) -> f64 {
+	let cpu_delta = cpu_stats.cpu_usage.total_usage - cpu_stats.cpu_usage.usage_in_kernelmode;
+    let system_delta = cpu_stats.system_cpu_usage - cpu_stats.cpu_usage.usage_in_kernelmode;
+
+	if system_delta > 0 && cpu_delta > 0 {
+		let cpu_percent = (cpu_delta as f64 / system_delta as f64) * 100.0;
+		cpu_percent.round()
+	} else {
+		0.0
+	}
+}
+
 async fn create_container(image: &str) -> Result<(), Box<dyn Error>> {
 	let docker = Docker::new();
 
@@ -62,7 +103,7 @@ async fn delete_container(container_id: &str) -> Result<(), Box<dyn Error>> {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() -> Result<(), dyn Error> {
 	let _prometheus_addr = env::var("PROMETHEUS_ADDR").unwrap_or_else(|_| PROMETHEUS_ADDR.to_string());
 	let prometheus_metrics = warp::path("metrics").map(|| {
 		let encoder = TextEncoder::new();

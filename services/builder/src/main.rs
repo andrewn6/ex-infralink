@@ -1,6 +1,4 @@
-pub mod db;
 pub mod logs;
-
 
 use hyper::body::to_bytes;
 use hyper::service::{make_service_fn, service_fn};
@@ -15,9 +13,11 @@ use nixpacks::{create_docker_image, generate_build_plan};
 
 use logs::logs::get_logs;
 use logs::logs::LogFilter;
-use db::db::connection;
+use dotenv::dotenv;
 use serde::{Deserialize};
 use serde_json::json;
+use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 
 use colored::*;
 use std::sync::{Arc};
@@ -81,20 +81,9 @@ fn convert_to_nixpacks_options(local_options: &DockerBuilderOptions) -> Nixpacks
     }
 }
 
-async fn handle(req: Request<Body>, child_handle: SharedChild) -> Result<Response<Body>, Error> {
+async fn handle(req: Request<Body>, db_pool: PgPool) -> Result<Response<Body>, Error> {
 	match (req.method(), req.uri().path()) {
-		(&Method::POST, "/build") => {
-			let conn = match connection().await {
-				Ok(conn) => conn,
-				Err(e) => {
-					eprintln!("Connection error: {}", e);
-					return Ok(Response::builder()
-						.status(StatusCode::INTERNAL_SERVER_ERROR)
-						.body(Body::from("Internal Server Error"))
-						.unwrap());
-				}
-			};
-				
+		(&Method::POST, "/build") => {				
 			let whole_body = to_bytes(req.into_body()).await?;
 			let build_info: BuildInfo = match serde_json::from_slice(&whole_body) {
 				Ok(info) => info,
@@ -114,6 +103,8 @@ async fn handle(req: Request<Body>, child_handle: SharedChild) -> Result<Respons
 					.unwrap();
 				return Ok(response)
 			}
+
+			let conn = db_pool.acquire().await.unwrap();
 			let plan_options = GeneratePlanOptions::default(); // Generate default options
 
 			let plan = generate_build_plan(
@@ -128,8 +119,13 @@ async fn handle(req: Request<Body>, child_handle: SharedChild) -> Result<Respons
 			let build_if = format!("{}:{}", &build_info.path, &start_time);
 
 			/* Insert build data once build is triggered */
-			conn.execute("INSERT into build_data (id, start_time, status) VALUES ($1, $2, $3)",
-				&[&build_if, &start_time, &"running"]).await.unwrap();
+			sqlx::query("INSERT into build_data (id, start_time, status) VALUES ($1, $2, $3)")
+				.bind(&build_if)
+				.bind(&start_time)
+				.bind("running")
+				.execute(&mut conn)
+				.await;
+
 
 			let result = create_docker_image(
 				&build_info.path,
@@ -160,8 +156,13 @@ async fn handle(req: Request<Body>, child_handle: SharedChild) -> Result<Respons
 			};
 
 			let end_time = Utc::now().to_rfc3339();
-			conn.execute("UPDATE build_data SET status = $1, end_time = $2 WHERE id = $3",
-				&[&status, &end_time, &build_if]).await.unwrap();
+			
+			sqlx::query("UPDATE build_data SET status = $1, end_time = $2 WHERE id = $3")
+				.bind(&status)
+				.bind(&end_time)
+				.bind(&build_if)
+				.execute(&mut conn)
+				.await;
 
 			let _ = match result {
 				Ok(_) => Ok(Response::new(Body::from("Image created."))),
@@ -201,24 +202,37 @@ async fn handle(req: Request<Body>, child_handle: SharedChild) -> Result<Respons
 		}
 		
 		_ => {
-			Ok(Response::builder().status(StatusCode::METHOD_NOT_ALLOWED).body(Body::from("Method not allowed")).unwrap())
+			let response = Response::builder()
+				.status(StatusCode::NOT_FOUND)
+				.body(Body::from("Not found"))
+				.unwrap();
+			Ok(response)
 		}
 	}
 }
 
 #[tokio::main]
 async fn main() {	
-	let child_handle = Arc::new(Mutex::new(None));
+	dotenv().ok();
 
-	let service = make_service_fn(move |_| {
-		let child_handle = child_handle.clone();
-		async move {
-			Ok::<_, hyper::Error>(service_fn(move |req| handle(req, child_handle.clone())))
+	let db_url = std::env::var("COCKROACH_DB_URL")
+		.expect("COCKROACH_DB_URL must be set");
+
+	let db_pool = PgPoolOptions::new()
+		.max_connections(5)
+		.connect(&db_url)
+		.await
+		.expect("Failed to connect to DB");
+
+	let addr = ([0, 0, 0 ,0], 8084).into();
+	let make_svc = make_service_fn(|_conn| {
+		let db_pool = db_pool.clone();
+		async {
+			Ok::<_, Error>(service_fn(move |req| handle(req, db_pool)))
 		}
 	});
 
-	let addr = ([127, 0, 0, 1], 8084).into();
-	let server = Server::bind(&addr).serve(service);
+	let server = Server::bind(&addr).serve(make_svc);
 
 	println!("Builder Server listening on {}", addr.to_string().bright_blue());
 

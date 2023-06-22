@@ -1,5 +1,5 @@
 {
-  description = "Infralimk Rust development environment";
+  description = "Infralink Rust development environment";
 
   inputs = {
 

@@ -51,18 +51,26 @@ async fn track_container_stats() -> Result<(), Box<dyn Error>> {
 		let memory_usage_sum = 0.0;
 
 		for container in containers {
-			let stats = docker.containers().get(&container.id).stats().await?;
+			let stats = docker.containers().get(&container.id).stats();
 
-			if let Some(cpu_stats) = stats.cpu_stats {
-				let cpu_percent = calculate_cpu_percent(&cpu_stats);
-				println!("Container ID: {}", container.id);
-				println!("CPU Usage: {}%", cpu_percent);
+			while let Some(stats_result) = stats_stream.next().await {
+                let stats = stats_result?;
 
-			}
-			if let Some(memory_stats) = stats.memory_stats {
-				let memory_usage = memory_stats.usage as f64;
-				println!("Memory usage: {} bytes", memory_usage);
-			}
+                if let Some(cpu_stats) = stats.cpu_stats {
+                    let cpu_percent = calculate_cpu_percent(&cpu_stats);
+                    println!("Container ID: {}", container.id);
+                    println!("CPU Usage: {}%", cpu_percent);
+                }
+                if let Some(memory_stats) = stats.memory_stats {
+                    let memory_usage = memory_stats.usage as f64;
+                    println!("Memory usage: {} bytes", memory_usage);
+                }
+
+                cpu_usage_sum += cpu_stats.cpu_usage.total_usage as f64;
+                memory_usage_sum += memory_stats.usage as f64;
+				
+           	 	}
+        	}
 		}
 
 		let avg_cpu_usage = cpu_usage_sum / containers.len() as f64;
@@ -124,7 +132,7 @@ async fn delete_container(container_id: &str) -> Result<(), Box<dyn Error>> {
 }
 
 #[tokio::main]
-async fn main() -> Result<(), dyn Error> {
+async fn main() -> Result<(), Box<dyn Error>> {
 	let _prometheus_addr = env::var("PROMETHEUS_ADDR").unwrap_or_else(|_| PROMETHEUS_ADDR.to_string());
 	let prometheus_metrics = warp::path("metrics").map(|| {
 		let encoder = TextEncoder::new();
@@ -135,6 +143,8 @@ async fn main() -> Result<(), dyn Error> {
 			.header("Content-Type", encoder.format_type())
 			.body(buffer)
 	});
+
+	track_container_stats().await?;
 	
 	// let rate_limiter = Arc::new(DirectRateLimiter::<GCRA>::per_second(std::num::NonZeroU32::new(10).unwrap()));
 	let health_check_route = warp::path("health")

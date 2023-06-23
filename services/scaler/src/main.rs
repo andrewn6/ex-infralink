@@ -1,7 +1,7 @@
 use futures::StreamExt;
 use prometheus::{TextEncoder, Encoder};
 
-use serde::{Deserialize};
+use serde::Deserialize;
 use tokio::time::{sleep, Duration};
 use std::env;
 use std::error::Error;
@@ -50,7 +50,7 @@ async fn track_container_stats() -> Result<(), Box<dyn Error>> {
 
 		let mut cpu_usage_sum = 0.0;
 		let mut memory_usage_sum = 0.0;
-		let mut container_count = 0;
+		let mut _container_count = 0;
 
 		for container in &containers {
 			let mut stats_stream = docker.containers().get(&container.id).stats();
@@ -73,7 +73,7 @@ async fn track_container_stats() -> Result<(), Box<dyn Error>> {
                 println!("Memory usage: {} bytes", memory_usage);
                 memory_usage_sum += memory_usage;
 
-				container_count += 1;
+				_container_count += 1;
             }
         
         }
@@ -92,12 +92,12 @@ async fn track_container_stats() -> Result<(), Box<dyn Error>> {
 	}
 }
 
-async fn scale() {
-	for _ in 0..CONTAINER_THRESHOLD {
-		// atm im not sure what image we should be using here
-		create_container("ubuntu:latest").await.expect("Failed to create new containers to scale up");
-	}
-	println!("Successfuly scaled up containers by {}", CONTAINER_THRESHOLD);
+async fn scale() -> Result<impl warp::Reply, warp::Rejection> {
+    for _ in 0..CONTAINER_THRESHOLD {
+        // atm im not sure what image we should be using here
+        create_container("ubuntu:latest").await.map_err(|_| warp::reject::not_found())?;
+    }
+    Ok(format!("Successfully scaled up containers by {}", CONTAINER_THRESHOLD))
 }
 
 fn calculate_cpu_percent(cpu_stats: &shiplift::rep::CpuStats) -> f64 {
@@ -134,18 +134,34 @@ async fn delete_container(container_id: &str) -> Result<(), Box<dyn Error>> {
 
     Ok(())	
 }
+async fn handle_rejection(err: warp::Rejection) -> Result<impl warp::Reply, warp::Rejection> {
+	if err.is_not_found() {
+		return Ok(warp::reply::with_status(
+			"not found",
+			warp::http::StatusCode::NOT_FOUND,
+		));
+	}
+
+	eprintln!("unhandled rejection: {:?}", err);
+	Ok(warp::reply::with_status(
+		"internal server error",
+		warp::http::StatusCode::INTERNAL_SERVER_ERROR,
+	))
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
 	let _prometheus_addr = env::var("PROMETHEUS_ADDR").unwrap_or_else(|_| PROMETHEUS_ADDR.to_string());
-	let prometheus_metrics = warp::path("metrics").map(|| {
+	let prometheus_metrics = warp::path("metrics").and_then(|| async {
 		let encoder = TextEncoder::new();
 		let metrics_families = prometheus::gather();
 		let mut buffer = vec![];
 		encoder.encode(&metrics_families, &mut buffer).unwrap();
-		Response::builder()
-			.header("Content-Type", encoder.format_type())
-			.body(buffer)
+		Ok::<_, std::convert::Infallible>(
+			Response::builder()
+				.header("Content-Type", encoder.format_type())
+				.body(buffer)
+		)
 	});
 
 	track_container_stats().await?;
@@ -163,11 +179,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
 	let scale_route = warp::path("scale")
 		.and(warp::get())
 		.and(warp::path::end())
-		.and(warp::any().map(scale));
+		.and_then(|| async { scale().await })
+	 	.recover(handle_rejection);
      
 	let routes = health_check_route
 		.or(hello_route)
-		.or(prometheus_metrics)
 		.or(scale_route);
 
 	let server_address = ([127, 0, 0, 1], 8087);

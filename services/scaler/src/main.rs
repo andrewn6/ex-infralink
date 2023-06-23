@@ -16,6 +16,9 @@ const VULTR_API_KEY: &str = dotenv!("VULTR_API_KEY");
 const PROMETHEUS_ADDR: &str = dotenv!("PROMETHEUS_ADDR");
 
 const CONTAINER_THRESHOLD: usize = 2; // Number of containers to create when scaling
+const DESCALE_CPU_THRESHOLD: f64 = 30.0;
+const DESCALE_MEMORY_THRESHOLD: f64 = 50_000_000.0; 
+const DESCALE_CONTAINER_COUNT: usize = 1;
 
 #[derive(Debug, Deserialize)]
 struct Instance {
@@ -88,6 +91,10 @@ async fn track_container_stats() -> Result<(), Box<dyn Error>> {
 			scale().await;
 		}
 
+		if (avg_cpu_usage < DESCALE_CPU_THRESHOLD || avg_memory_usage < DESCALE_MEMORY_THRESHOLD) && containers.len() > DESCALE_CONTAINER_COUNT {
+  				// descale().await;
+  		}
+
 		sleep(Duration::from_secs(60)).await;
 	}
 }
@@ -100,6 +107,24 @@ async fn scale() -> Result<impl warp::Reply, warp::Rejection> {
     Ok(format!("Successfully scaled up containers by {}", CONTAINER_THRESHOLD))
 }
 
+async fn descale() -> Result<impl warp::Reply, warp::Rejection> {
+	let docker = Docker::new();
+	let options = ContainerListOptions::builder()
+		.all()
+		.build();
+
+		let containers = docker.containers().list(&options).await.map_err(|_| warp::reject::not_found())?;
+
+	if containers.len() <= 1 {
+		return Ok(format!("No containers to descale"))
+	}
+
+	for container in containers.iter().take(std::cmp::min(DESCALE_CONTAINER_COUNT, containers.len() - 1)) {
+		delete_container(&container.id).await.map_err(|_| warp::reject::not_found())?;
+	}
+
+	Ok(format!("Successfully scaled down containers by {}", DESCALE_CONTAINER_COUNT))
+}
 fn calculate_cpu_percent(cpu_stats: &shiplift::rep::CpuStats) -> f64 {
 	let cpu_delta = cpu_stats.cpu_usage.total_usage - cpu_stats.cpu_usage.usage_in_kernelmode;
     let system_delta = cpu_stats.system_cpu_usage - cpu_stats.cpu_usage.usage_in_kernelmode;
@@ -134,6 +159,7 @@ async fn delete_container(container_id: &str) -> Result<(), Box<dyn Error>> {
 
     Ok(())	
 }
+
 async fn handle_rejection(err: warp::Rejection) -> Result<impl warp::Reply, warp::Rejection> {
 	if err.is_not_found() {
 		return Ok(warp::reply::with_status(
@@ -176,6 +202,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     	.and(warp::path::end())
     	.and(warp::any().map(|| "Hello, World!"));
 
+	let descale_route = warp::path("downscale")
+		.and(warp::get())
+		.and(warp::path::end())
+		.and_then(|| async { descale().await })
+		.recover(handle_rejection);
+
 	let scale_route = warp::path("scale")
 		.and(warp::get())
 		.and(warp::path::end())
@@ -184,7 +216,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
      
 	let routes = health_check_route
 		.or(hello_route)
-		.or(scale_route);
+		.or(scale_route)
+		.or(descale_route)
+		.or(prometheus_metrics);
 
 	let server_address = ([127, 0, 0, 1], 8087);
     println!("Scaler server running at http://localhost:8087");

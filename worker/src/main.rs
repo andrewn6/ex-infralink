@@ -94,7 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.add_service(GreeterServer::new(greeter))
 		.add_service(reflection_service)
 		//.add_service(DockerServiceServer::new(docker_service))
-		.add_service(ContainerStatsServiceServer::new(container_stats_service))
+		//.add_service(ContainerStatsServiceServer::new(container_stats_service))
 		.serve(addr)
 		.await?;
 

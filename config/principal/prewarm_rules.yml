@@ -2,9 +2,8 @@
   regions:
     - us-west
     - us-east
-  instance_count: 2
-
+  instance_count: 1
 - provider: host_hatch
   regions:
     - eu-west
-  instance_count: 3
+  instance_count: 1

@@ -10,10 +10,10 @@ use rdkafka::config::ClientConfig;
 use rdkafka::util::Timeout;
 
 use chrono::prelude::*;
-use chrono_tz::Tz::UTC;
 use futures::StreamExt;
 use tracing::{error};
 
+use chrono::{DateTime, Utc, offset::TimeZone};
 use std::sync::Arc;
 use std::str;
 use std::time::Duration;
@@ -35,6 +35,7 @@ impl LogFilter {
         message.timestamp >= self.start_time && message.timestamp <= self.end_time
     }
 }
+
 
 pub async fn get_logs(container_id: &str, filter: LogFilter, tx: broadcast::Sender<LogMessage>) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let docker = Docker::new();
@@ -75,11 +76,15 @@ pub async fn get_logs(container_id: &str, filter: LogFilter, tx: broadcast::Send
 
                 let dt: DateTime<Utc> = Utc::now();
 
-                let row = vec![
-                    ("source".to_string(), Value::String(Arc::new(message.source.into_bytes()))),
-                    ("timestamp".to_string(), Value::DateTime(message.timestamp.timestamp() as u32, UTC)),
-                    ("text".to_string(), Value::String(Arc::new(message.text.into_bytes()))),
-                ];
+                let timestamp: DateTime<Utc> = message.timestamp;
+                let timestamp_seconds = timestamp.timestamp() as u32; // timestamp() returns i64, cast it to u32
+                let timezone_offset_seconds = Local::now().offset().fix().local_minus_utc() as u32;
+
+            let row = vec![
+                ("source".to_string(), Value::String(Arc::new(message.source.into_bytes()))),
+                ("timestamp".to_string(), Value::DateTime(timestamp_seconds, timezone_offset_seconds)),
+                ("text".to_string(), Value::String(Arc::new(message.text.into_bytes()))),
+            ];
                 
                 block.push(row);
 

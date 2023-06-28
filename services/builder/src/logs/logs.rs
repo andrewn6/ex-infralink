@@ -10,10 +10,11 @@ use rdkafka::config::ClientConfig;
 use rdkafka::util::Timeout;
 
 use chrono::prelude::*;
+use chrono::{DateTime, Utc, TimeZone};
+use chrono_tz::Tz;
 use futures::StreamExt;
 use tracing::{error};
 
-use chrono::{DateTime, Utc, offset::TimeZone};
 use std::sync::Arc;
 use std::str;
 use std::time::Duration;
@@ -77,16 +78,17 @@ pub async fn get_logs(container_id: &str, filter: LogFilter, tx: broadcast::Send
                 let dt: DateTime<Utc> = Utc::now();
 
                 let timestamp: DateTime<Utc> = message.timestamp;
-                let timestamp_seconds = timestamp.timestamp() as u32; // timestamp() returns i64, cast it to u32
+                let timestamp_seconds = timestamp.timestamp(); // timestamp() returns i64, cast it to u32
                 let timezone_offset_seconds = Local::now().offset().fix().local_minus_utc() as u32;
 
             let row = vec![
                 ("source".to_string(), Value::String(Arc::new(message.source.into_bytes()))),
-                ("timestamp".to_string(), Value::DateTime(timestamp_seconds, timezone_offset_seconds)),
+                ("timestamp".to_string(), Value::DateTime64(timestamp_seconds, (timezone_offset_seconds, Tz::UTC))),
                 ("text".to_string(), Value::String(Arc::new(message.text.into_bytes()))),
             ];
                 
                 block.push(row);
+
 
                 let mut client = pool.get_handle().await?;
             

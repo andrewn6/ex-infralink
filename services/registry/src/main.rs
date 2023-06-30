@@ -48,13 +48,6 @@ async fn handle_push(
 			.unwrap());
 	}	
 
-	if image_data.image_name.is_empty() || image_data.image_tag.is_empty() {
-		return Ok(Response::builder()
-			.status(StatusCode::BAD_REQUEST)
-			.body(Body::from("Image name or tag is empty"))
-			.unwrap());
-	}
-
 	// Update accordingly 
 	let registry_url = "registry.mach.dev";
 

@@ -8,10 +8,10 @@ use hyper::Server;
 use reqwest::{Client, Url};
 
 use webhook::webhook::handle_request as handle_webhook;
+use webhook::webhook::webhook_route;
 
 use nixpacks::nixpacks::builder::docker::DockerBuilderOptions as NixpacksOptions;
 use nixpacks::nixpacks::plan::generator::GeneratePlanOptions;
-use nixpacks::nixpacks::plan::BuildPlan;
 use nixpacks::{create_docker_image, generate_build_plan};
 
 use logs::logs::get_logs;
@@ -26,13 +26,9 @@ use colored::*;
 use std::sync::{Arc};
 use chrono::{Utc, DateTime};
 use tokio::sync::broadcast;
-use tokio::sync::Mutex;
 
 extern crate chrono;
 extern crate chrono_tz;
-
-type SharedChild = Arc<Mutex<Option<BuildPlan>>>;
-
 #[derive(Deserialize)]
 struct BuildInfo {
 	pub path: String,
@@ -87,8 +83,12 @@ fn convert_to_nixpacks_options(local_options: &DockerBuilderOptions) -> Nixpacks
     }
 }
 
-async fn handle(req: Request<Body>, db_pool: PgPool) -> Result<Response<Body>, Error> {
+async fn handle(req: Request<Body>, db_pool: Arc<PgPool>) -> Result<Response<Body>, Error> {
 	match (req.method(), req.uri().path()) {
+		(&Method::POST, "/webhook") => {
+			handle_webhook(req).await
+		}
+
 		(&Method::POST, "/build") => {				
 			let whole_body = to_bytes(req.into_body()).await?;
 			let build_info: BuildInfo = match serde_json::from_slice(&whole_body) {
@@ -110,7 +110,7 @@ async fn handle(req: Request<Body>, db_pool: PgPool) -> Result<Response<Body>, E
 				return Ok(response)
 			}
 
-			let conn = db_pool.acquire().await.unwrap();
+			let mut conn = db_pool.acquire().await.unwrap();
 			let plan_options = GeneratePlanOptions::default(); // Generate default options
 
 			let plan = generate_build_plan(
@@ -125,12 +125,15 @@ async fn handle(req: Request<Body>, db_pool: PgPool) -> Result<Response<Body>, E
 			let build_if = format!("{}:{}", &build_info.path, &start_time);
 
 			/* Insert build data once build is triggered */
-			sqlx::query("INSERT into build_data (id, start_time, status) VALUES ($1, $2, $3)")
+			match sqlx::query("INSERT into build_data (id, start_time, status) VALUES ($1, $2, $3)")
 				.bind(&build_if)
 				.bind(&start_time)
 				.bind("running")
 				.execute(&mut conn)
-				.await;
+				.await {
+				Ok(_) => eprintln!("DB insert success"),
+				Err(e) => eprintln!("DB insert error: {}", e), // Or handle the error more properly
+			}
 
 
 			let result = create_docker_image(
@@ -163,12 +166,15 @@ async fn handle(req: Request<Body>, db_pool: PgPool) -> Result<Response<Body>, E
 
 			let end_time = Utc::now().to_rfc3339();
 			
-			sqlx::query("UPDATE build_data SET status = $1, end_time = $2 WHERE id = $3")
-				.bind(&status)
+			match sqlx::query("UPDATE build_data SET status = $1, end_time = $2 WHERE id = $3")
+				.bind(status)
 				.bind(&end_time)
 				.bind(&build_if)
 				.execute(&mut conn)
-				.await;
+				.await {
+				Ok(_) => eprintln!("DB updated"),
+				Err(e) => eprintln!("DB update error: {}", e), // Or handle the error more properly
+			}
 
 			let _ = match result {
 				Ok(_) => Ok(Response::new(Body::from("Image created."))),
@@ -224,22 +230,30 @@ async fn main() {
 	let db_url = std::env::var("COCKROACH_DB_URL")
 		.expect("COCKROACH_DB_URL must be set");
 
-	let db_pool = PgPoolOptions::new()
-		.max_connections(5)
-		.connect(&db_url)
-		.await
-		.expect("Failed to connect to DB");
+	let db_pool = Arc::new(
+		PgPoolOptions::new()
+			.max_connections(5)
+			.connect(&db_url)
+			.await
+			.expect("Failed to connect to DB")
+	);
 
 	let addr = ([0, 0, 0 ,0], 8084).into();
-	let make_svc = make_service_fn(|_conn| {
-		let db_pool = db_pool.clone();
-		async {
-			Ok::<_, Error>(service_fn(move |req| handle(req, db_pool)))
+
+	webhook_route(addr).await;
+	
+	let make_svc = make_service_fn(move |_conn| {
+		let db_pool = Arc::clone(&db_pool);
+		async move {
+			Ok::<_, Error>(service_fn(move |req| {
+				let db_pool = db_pool.clone();
+				handle(req, db_pool)
+			}))
 		}
 	});
 
 	let server = Server::bind(&addr).serve(make_svc);
-
+	
 	println!("Builder Server listening on {}", addr.to_string().bright_blue());
 
 	if let Err(e) = server.await {

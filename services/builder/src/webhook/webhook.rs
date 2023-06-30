@@ -102,16 +102,16 @@ pub async fn handle_request(req: Request<Body>) -> Result<Response<Body>, hyper:
             }        
         }
 }
-
-
 pub async fn webhook_route(addr: SocketAddr) {
     let make_service = make_service_fn(|_conn| async {
         Ok::<_, hyper::Error>(service_fn(handle_request))
     });
 
-    let server = Server::bind(&addr).serve(make_service);
+    loop {
+        let server = Server::bind(&addr).serve(make_service);
 
-    if let Err(e) = server.await {
-        eprintln!("server error: {}", e);
+        if let Err(e) = server.await {
+            eprintln!("server error: {}", e);
+        }
     }
 }

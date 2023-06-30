@@ -5,20 +5,19 @@ This is responsible for building the app, it uses nixpacks to build and create a
 ## API
 
 /build
+
+*You can replace path below with a local directory*
+
 ```
-curl -X POST \
-  -H "Content-Type: application/json" \
-  -d '{
-    "path": "/path/to/build/",
-    "name": "example-image",
-    "envs": ["ENV_VAR1=value1", "ENV_VAR2=value2"],
-    "build_options": {
-      "name": "example-image",
-      "tags": ["latest"],
-      "quiet": true
-    }
-  }' \
-  http://localhost:8084/build
+curl -X POST -H "Content-Type: application/json" -d '{
+  "path": "https://github.com/your-username/your-repo.git", 
+  "name": "my-image",
+  "envs": ["ENV_VAR1=value1", "ENV_VAR2=value2"],
+  "build_options": {
+    "name": "my-image",
+    "tags": ["v1.0", "latest"]
+  }
+}' http://localhost:8084/build
 ```
 
 /logs

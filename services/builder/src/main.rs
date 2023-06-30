@@ -22,6 +22,8 @@ use serde_json::json;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 
+use git2::Repository;
+use tempfile::tempdir;
 use colored::*;
 use std::sync::{Arc};
 use chrono::{Utc, DateTime};
@@ -91,6 +93,9 @@ async fn handle(req: Request<Body>, db_pool: Arc<PgPool>) -> Result<Response<Bod
 
 		(&Method::POST, "/build") => {				
 			let whole_body = to_bytes(req.into_body()).await?;
+
+			let repo_dir;
+
 			let build_info: BuildInfo = match serde_json::from_slice(&whole_body) {
 				Ok(info) => info,
 				Err(_) => {
@@ -101,6 +106,24 @@ async fn handle(req: Request<Body>, db_pool: Arc<PgPool>) -> Result<Response<Bod
 				return Ok(response);
 				}
 			};
+
+			if std::path::Path::new(&build_info.path).is_dir() {
+				repo_dir = build_info.path.clone();
+			} else {
+				let temp_dir = tempdir().expect("Failed to create temp dir");
+				repo_dir = temp_dir.path().	display().to_string();
+				match Repository::clone(&build_info.path, &repo_dir) {
+					Ok(_) => eprintln!("Cloned repo successfully"),
+					Err(e) => {
+						let response = Response::builder()
+							.status(StatusCode::BAD_REQUEST)
+							.body(Body::from(format!("Failed to clone repository: {}", e)))
+							.unwrap();
+						return Ok(response);
+					}
+				}
+			}
+
 
 			if build_info.path.is_empty() || build_info.name.is_empty() {
 				let response = Response::builder()
@@ -135,9 +158,8 @@ async fn handle(req: Request<Body>, db_pool: Arc<PgPool>) -> Result<Response<Bod
 				Err(e) => eprintln!("DB insert error: {}", e), // Or handle the error more properly
 			}
 
-
 			let result = create_docker_image(
-				&build_info.path,
+				&repo_dir,
 				build_info.envs.iter().map(AsRef::as_ref).collect(),
 				&plan_options,
 				&nixpack_options,

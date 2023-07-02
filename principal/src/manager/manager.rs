@@ -1,15 +1,11 @@
 use reqwest::Client;
 use sqlx::postgres::PgPoolOptions;
-use std::collections::HashMap;
-use sqlx::Pool;
 use sqlx::postgres::PgPool;
 use dotenv_codegen::dotenv;
 
 // Vultr provider
 use crate::providers::vultr::models::request::instance::InstanceBuilder;
-use crate::providers::vultr::models::request::instance::InstanceType;
 use crate::providers::vultr::models::request::instance::Instance;
-use crate::rules::rules;
 use crate::rules::rules::Rule;
 use crate::shared_config::SharedConfig;
 use crate::providers::vultr::models::request::region::Region;
@@ -35,7 +31,7 @@ impl Manager {
     }
 
     async fn load_rules(pool: &sqlx::Pool<sqlx::Postgres>) -> Result<Vec<Rule>, sqlx::Error> {
-        let mut rules = vec![];
+        let rules = vec![];
         let recs = sqlx::query(
             r#"
             SELECT provider, region, instance_count
@@ -69,7 +65,45 @@ impl Manager {
         Ok(resp)
     }
 
-    
+    pub async fn manage(&self, shared_config: SharedConfig) {
+        loop {
+            match self.get_instances().await {
+                Ok(instances) => {
+                    let instance_count = self.count_instances(&instances);
+                    for rule in &self.rules {
+                        match rule.provider.as_str() {
+                            "vultr" => {
+                                for region_str in &rule.regions {
+                                    let region = Region::from(region_str.as_str());
+                                    let count = instance_count.get(region.to_string().as_str()).unwrap_or(&0);
+                                    match count {
+                                        c if c < &&rule.instance_count => {
+                                            println!("Need to start instances in region {}", rule.instance_count - c, region);
+                                            let instance = InstanceBuilder::new()
+                                                .region(region.clone())
+                                                .build(shared_config).await;
+                                            instance.start(shared_config);
+                                        },
+                                        c if c > &rule.instance_count => {
+                                            println!("Need to stop {} instances in region {}", c - rule.instance_count, region);
+                                            for instance in instances.iter().filter(|i| i.region == region && i.provider == rule.provider) {
+                                                instance.halt(shared_config).await;
+                                            }
+                                        },
+                                        // other providers go here, eg hosthatch, etc
+                                        _ => (),
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                Err(_) => todo!()
+            }
+        }
+    }
+
+    /* 
     fn count_instances(&self, instances: &[Instance]) -> HashMap<String, usize> {
         let mut counts = HashMap::new();
         for instance in instances {
@@ -77,4 +111,5 @@ impl Manager {
         }
         counts
     }
+    */
 }

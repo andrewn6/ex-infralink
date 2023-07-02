@@ -14,5 +14,5 @@ async fn main() {
 	dotenv().unwrap();
 
 	// Only uncomment if changes are made
-	// create_manager_rules(); 
+	create_manager_rules();
 }

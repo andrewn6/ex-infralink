@@ -1,9 +1,0 @@
-- provider: vultr
-  regions:
-    - us-west
-    - us-east
-  instance_count: 1
-- provider: host_hatch
-  regions:
-    - eu-west
-  instance_count: 1

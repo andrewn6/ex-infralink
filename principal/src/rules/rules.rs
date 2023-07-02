@@ -2,6 +2,13 @@ use anyhow::Result;
 use sqlx::postgres::PgPoolOptions;
 use dotenv_codegen::dotenv;
 
+#[derive(Debug, Clone)]
+pub struct Rule {
+    pub provider: String,
+    pub regions: Vec<String>,
+    pub instance_count: i32,
+}
+
 #[tokio::main]
 pub async fn create_manager_rules() -> Result<(), Box<dyn std::error::Error>> {
     let database_url  = dotenv!("COCKROACH_DB_URL");

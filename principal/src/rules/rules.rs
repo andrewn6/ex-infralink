@@ -3,7 +3,7 @@ use sqlx::postgres::PgPoolOptions;
 use dotenv_codegen::dotenv;
 
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+pub async fn create_manager_rules() -> Result<(), Box<dyn std::error::Error>> {
     let database_url  = dotenv!("COCKROACH_DB_URL");
     let pool = PgPoolOptions::new().connect(database_url).await?;
 

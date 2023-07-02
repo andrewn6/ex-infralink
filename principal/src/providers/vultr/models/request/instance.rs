@@ -42,6 +42,7 @@ pub struct Instance {
 	pub features: Vec<String>,
 	pub plan: Plan,
 	pub tags: Vec<String>,
+	pub provider: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

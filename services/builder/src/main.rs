@@ -124,7 +124,6 @@ async fn handle(req: Request<Body>, db_pool: Arc<PgPool>) -> Result<Response<Bod
 				}
 			}
 
-
 			if build_info.path.is_empty() || build_info.name.is_empty() {
 				let response = Response::builder()
 					.status(StatusCode::BAD_REQUEST)

@@ -1,6 +1,7 @@
 use serde::de::{self, Deserialize, Deserializer, Visitor};
 use serde::ser::{Serialize, Serializer};
 use std::fmt;
+use std::str::FromStr;
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Region {
@@ -68,55 +69,108 @@ pub enum Africa {
 	Johannesburg,
 }
 
-impl ToString for Region {
-	fn to_string(&self) -> String {
+impl FromStr for Region {
+    type Err = ();  // define type of error
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Tokyo" => Ok(Region::Asia(Asia::Tokyo)),
+            "Osaka" => Ok(Region::Asia(Asia::Osaka)),
+            "Seoul" => Ok(Region::Asia(Asia::Seoul)),
+            "Singapore" => Ok(Region::Asia(Asia::Singapore)),
+            "Mumbai" => Ok(Region::Asia(Asia::Mumbai)),
+            "Tel Aviv" => Ok(Region::Asia(Asia::TelAviv)),
+            "Bangalore" => Ok(Region::Asia(Asia::Bangalore)),
+            "Delhi" => Ok(Region::Asia(Asia::Delhi)),
+
+            "Sydney" => Ok(Region::Australia(Australia::Sydney)),
+            "Melbourne" => Ok(Region::Australia(Australia::Melbourne)),
+
+            "Amsterdam" => Ok(Region::Europe(Europe::Amsterdam)),
+            "London" => Ok(Region::Europe(Europe::London)),
+            "Frankfurt" => Ok(Region::Europe(Europe::Frankfurt)),
+            "Paris" => Ok(Region::Europe(Europe::Paris)),
+            "Warsaw" => Ok(Region::Europe(Europe::Warsaw)),
+            "Madrid" => Ok(Region::Europe(Europe::Madrid)),
+            "Stockholm" => Ok(Region::Europe(Europe::Stockholm)),
+
+            "New Jersey" => Ok(Region::NorthAmerica(NorthAmerica::NewJersey)),
+            "Chicago" => Ok(Region::NorthAmerica(NorthAmerica::Chicago)),
+            "Dallas" => Ok(Region::NorthAmerica(NorthAmerica::Dallas)),
+            "Seattle" => Ok(Region::NorthAmerica(NorthAmerica::Seattle)),
+            "Los Angeles" => Ok(Region::NorthAmerica(NorthAmerica::LosAngeles)),
+            "Atlanta" => Ok(Region::NorthAmerica(NorthAmerica::Atlanta)),
+            "Silicon Valley" => Ok(Region::NorthAmerica(NorthAmerica::SiliconValley)),
+            "Toronto" => Ok(Region::NorthAmerica(NorthAmerica::Toronto)),
+            "Miami" => Ok(Region::NorthAmerica(NorthAmerica::Miami)),
+            "Mexico City" => Ok(Region::NorthAmerica(NorthAmerica::MexicoCity)),
+            "Honolulu" => Ok(Region::NorthAmerica(NorthAmerica::Honolulu)),
+
+            "Sao Paulo" => Ok(Region::SouthAmerica(SouthAmerica::SaoPaulo)),
+            "Santiago" => Ok(Region::SouthAmerica(SouthAmerica::Santiago)),
+
+            "Johannesburg" => Ok(Region::Africa(Africa::Johannesburg)),
+
+            _ => Err(()),  // return error for unknown city
+        }
+    }
+}
+
+impl fmt::Display for Region {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 		match self {
 			Region::Asia(city) => match city {
-				Asia::Tokyo => "Tokyo".to_string(),
-				Asia::Osaka => "Osaka".to_string(),
-				Asia::Seoul => "Seoul".to_string(),
-				Asia::Singapore => "Singapore".to_string(),
-				Asia::Mumbai => "Mumbai".to_string(),
-				Asia::TelAviv => "Tel Aviv".to_string(),
-				Asia::Bangalore => "Bangalore".to_string(),
-				Asia::Delhi => "Delhi".to_string(),
+				Asia::Tokyo => write!(f, "Tokyo"),
+				Asia::Osaka => write!(f, "Osaka"),
+				Asia::Seoul => write!(f, "Seoul"),
+				Asia::Singapore => write!(f, "Singapore"),
+				Asia::Mumbai => write!(f, "Mumbai"),
+				Asia::TelAviv => write!(f, "Tel Aviv"),
+				Asia::Bangalore => write!(f, "Bangalore"),
+				Asia::Delhi => write!(f, "Delhi"),
+				_ => write!(f, "Unknown city in Asia"),
 			},
 			Region::Australia(city) => match city {
-				Australia::Sydney => "Sydney".to_string(),
-				Australia::Melbourne => "Melbourne".to_string(),
+				Australia::Sydney => write!(f, "Sydney"),
+				Australia::Melbourne => write!(f, "Melbourne"),
+				_ => write!(f, "Unknown city in Australia"),
 			},
 			Region::Europe(city) => match city {
-				Europe::Amsterdam => "Amsterdam".to_string(),
-				Europe::London => "London".to_string(),
-				Europe::Frankfurt => "Frankfurt".to_string(),
-				Europe::Paris => "Paris".to_string(),
-				Europe::Warsaw => "Warsaw".to_string(),
-				Europe::Madrid => "Madrid".to_string(),
-				Europe::Stockholm => "Stockholm".to_string(),
+				Europe::Amsterdam => write!(f, "Amsterdam"),
+				Europe::London => write!(f, "London"),
+				Europe::Frankfurt => write!(f, "Frankfurt"),
+				Europe::Paris => write!(f, "Paris"),
+				Europe::Warsaw => write!(f, "Warsaw"),
+				Europe::Madrid => write!(f, "Madrid"),
+				Europe::Stockholm => write!(f, "Stockholm"),
+				_ => write!(f, "Unknown city in Europe"),
 			},
 			Region::NorthAmerica(city) => match city {
-				NorthAmerica::NewJersey => "New Jersey".to_string(),
-				NorthAmerica::Chicago => "Chicago".to_string(),
-				NorthAmerica::Dallas => "Dallas".to_string(),
-				NorthAmerica::Seattle => "Seattle".to_string(),
-				NorthAmerica::LosAngeles => "Los Angeles".to_string(),
-				NorthAmerica::Atlanta => "Atlanta".to_string(),
-				NorthAmerica::SiliconValley => "Silicon Valley".to_string(),
-				NorthAmerica::Toronto => "Toronto".to_string(),
-				NorthAmerica::Miami => "Miami".to_string(),
-				NorthAmerica::MexicoCity => "Mexico City".to_string(),
-				NorthAmerica::Honolulu => "Honolulu".to_string(),
+				NorthAmerica::NewJersey => write!(f, "New Jersey"),
+				NorthAmerica::Chicago => write!(f, "Chicago"),
+				NorthAmerica::Dallas => write!(f, "Dallas"),
+				NorthAmerica::Seattle => write!(f, "Seattle"),
+				NorthAmerica::LosAngeles => write!(f, "Los Angeles"),
+				NorthAmerica::Atlanta => write!(f, "Atlanta"),
+				NorthAmerica::SiliconValley => write!(f, "Silicon Valley"),
+				NorthAmerica::Toronto => write!(f, "Toronto"),
+				NorthAmerica::Miami => write!(f, "Miami"),
+				NorthAmerica::MexicoCity => write!(f, "Mexico City"),
+				NorthAmerica::Honolulu => write!(f, "Honolulu"),
+				_ => write!(f, "Unknown city in North America"),
 			},
 			Region::SouthAmerica(city) => match city {
-				SouthAmerica::SaoPaulo => "Sao Paulo".to_string(),
-				SouthAmerica::Santiago => "Santiago".to_string(),
+				SouthAmerica::SaoPaulo => write!(f, "Sao Paulo"),
+				SouthAmerica::Santiago => write!(f, "Santiago"),
+				_ => write!(f, "Unknown city in South America"),
 			},
 			Region::Africa(city) => match city {
-				Africa::Johannesburg => "Johannesburg".to_string(),
+				Africa::Johannesburg => write!(f, "Johannesburg"),
+				_ => write!(f, "Unknown city in Africa"),
 			},
-			Region::Unknown => "Unknown".to_string(),
+			Region::Unknown => write!(f, "Unknown"),
 		}
-	}
+	}	
 }
 
 impl Region {

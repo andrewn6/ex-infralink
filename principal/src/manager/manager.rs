@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use reqwest::Client;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::postgres::PgPool;
@@ -78,7 +80,7 @@ impl Manager {
                                     let count = instance_count.get(region.to_string().as_str()).unwrap_or(&0);
                                     match count {
                                         c if c < &&rule.instance_count => {
-                                            println!("Need to start instances in region {}", rule.instance_count - c, region);
+                                            println!("Need to start {} instances in region {}", rule.instance_count - c, region);
                                             let instance = InstanceBuilder::new()
                                                 .region(region.clone())
                                                 .build(shared_config).await;
@@ -103,13 +105,15 @@ impl Manager {
         }
     }
 
-    /* 
-    fn count_instances(&self, instances: &[Instance]) -> HashMap<String, usize> {
-        let mut counts = HashMap::new();
+    fn count_instances(&self, instances: &Vec<Instance>) -> HashMap<String, i32> {
+        let mut instance_count: HashMap<String, i32> = HashMap::new();
+
         for instance in instances {
-            *counts.entry(instance.region.clone()).or_insert(0) += 1;
+            let region = instance.region.to_string();
+            let count = instance_count.entry(region).or_insert(0);
+            *count += 1;
         }
-        counts
+
+        instance_count
     }
-    */
 }

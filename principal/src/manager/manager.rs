@@ -4,6 +4,7 @@ use reqwest::Client;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::postgres::PgPool;
 use dotenv_codegen::dotenv;
+use futures::future::join_all;
 
 // Vultr provider
 use crate::providers::vultr::models::request::instance::InstanceBuilder;
@@ -13,11 +14,15 @@ use crate::shared_config::SharedConfig;
 use crate::providers::vultr::models::request::region::Region;
 
 const VULTR_API_KEY: &str = dotenv!("VULTR_API_KEY");
+const HETZNER_API_KEY: &str = dotenv!("HETZNER_API_KEY");
 
 pub struct Manager {
     client: Client,
     rules: Vec<Rule>,
     pool: PgPool,
+    vultr_key: String,
+    oracle_key: String,
+    hetzner_key: String,
 }
 
 impl Manager {
@@ -25,10 +30,18 @@ impl Manager {
         let database_url = dotenv!("COCKROACH_DB_URL");
         let pool = PgPoolOptions::new().connect(database_url).await?;
         let rules = Self::load_rules(&pool).await?;
+
+        let vultr_key = dotenv!("VULTR_API_KEY").to_string();
+        let hetzner_key = dotenv!("HETZNER_API_KEY").to_string();
+        let oracle_key = dotenv!("ORACLE_API_KEY").to_string();
+
         Ok(Self {
             client: Client::new(),
             rules,
             pool,
+            vultr_key,
+            hetzner_key,
+            oracle_key
         })
     }
 
@@ -56,9 +69,47 @@ impl Manager {
     }
 
     pub async fn get_instances(&self) -> Result<Vec<Instance>, reqwest::Error> {
-        /* TODO:, make a function that gets all the pre-warmed instances from all cloud platforms. */
+        let vultr_future = self.get_vultr_instances();
+        let hetzner_future = todo!();
+
+        let results = join_all(vec![vultr_future, hetzner_future]).await;
+
+        let mut instances = Vec::new();
+
+        for result in results {
+            match result {
+                Ok(mut data) => instances.append(&mut data),
+                Err(e) => return Err(e),
+            }
+        }
+
+        Ok(instances)
+    }
+
+    async fn get_vultr_instances(&self) -> Result<Vec<Instance>, reqwest::Error> {
         let resp = self.client.get("https://api.vultr.com/v2/instances")
-            .bearer_auth(VULTR_API_KEY)
+            .bearer_auth(&self.vultr_key)
+            .send()
+            .await?
+            .json::<Vec<Instance>>()
+            .await?;
+        
+        Ok(resp)
+    }
+
+    async fn get_oracle_instances(&self) -> Result<Vec<Instance>, reqwest::Error> {
+        let resp = self.client.get("api.oracle.com/servers") // TODO: implement actual oracle route.
+            .bearer_auth(&self.oracle_key)
+            .send()
+            .await?
+            .json::<Vec<Instance>>()
+            .await?;
+
+        Ok(resp)
+    }
+    async fn get_hetzner_instances(&self) -> Result<Vec<Instance>, reqwest::Error> {
+        let resp = self.client.get("https://api.hetzner.cloud/v1/servers")
+            .bearer_auth(&self.hetzner_key)
             .send()
             .await?
             .json::<Vec<Instance>>()

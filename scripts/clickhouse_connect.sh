@@ -1,1 +1,1 @@
-podman-compose exec clickhouse clickhouse-client
+docker-compose exec clickhouse clickhouse-client

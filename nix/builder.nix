@@ -1,4 +1,4 @@
-{ pkgs ? import <nixpkgs> { system = "x86_64-linux"; } }:
+{ pkgs ? import <nixpkgs> { system = "aarch64-darwin"; } }:
 pkgs.dockerTools.buildLayeredImage {
   name = "builder";
   tag = "latest";

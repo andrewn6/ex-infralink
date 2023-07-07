@@ -5,14 +5,19 @@ use sqlx::postgres::PgPoolOptions;
 use sqlx::postgres::PgPool;
 use dotenv_codegen::dotenv;
 use futures::future::join_all;
+use crate::rules::rules::Rule;
+use crate::shared_config::SharedConfig;
 
 // Vultr provider
 use crate::providers::vultr::models::request::instance::InstanceBuilder;
 use crate::providers::vultr::models::request::instance::Instance;
-use crate::rules::rules::Rule;
-use crate::shared_config::SharedConfig;
 use crate::providers::vultr::models::request::region::Region;
 
+// Hetzner
+use crate::providers::hetzner::models::request::instance::InstanceBuilder as HetznerInstanceBuilder;
+use crate::providers::hetzner::models::request::instance::Instance as HetznerInstance;
+use crate::providers::hetzner::models::request::region::Region as HetznerRegions;
+use crate::providers::vultr::models::request::region::NorthAmerica::NewJersey;
 const VULTR_API_KEY: &str = dotenv!("VULTR_API_KEY");
 const HETZNER_API_KEY: &str = dotenv!("HETZNER_API_KEY");
 
@@ -127,7 +132,7 @@ impl Manager {
                         match rule.provider.as_str() {
                             "vultr" => {
                                 for region_str in &rule.regions {
-                                    let region = Region::from(region_str.as_str());
+                                    let region = Region::from(Region::NorthAmerica(NewJersey));
                                     let count = instance_count.get(region.to_string().as_str()).unwrap_or(&0);
                                     match count {
                                         c if c < &&rule.instance_count => {
@@ -143,9 +148,14 @@ impl Manager {
                                                 instance.halt(shared_config).await;
                                             }
                                         },
-                                        // other providers go here, eg hosthatch, etc
                                         _ => (),
                                     }
+                                }
+                            }
+                            "hetzner" => {
+                                for region_str in &rule.regions {
+                                    let region = HetznerRegions::from(HetznerRegions::Helsinki);
+
                                 }
                             }
                         }

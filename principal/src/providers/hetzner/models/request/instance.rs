@@ -408,7 +408,7 @@ impl InstanceBuilder {
 		self
 	}
 
-	pub async fn build(self, shared_config: SharedConfig) -> Instance {
+	pub async fn build(self, shared_config: &mut SharedConfig) -> Instance {
 		shared_config
 			.clients
 			.hetzner()

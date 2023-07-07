@@ -267,7 +267,7 @@ impl InstanceBuilder {
 		self
 	}
 
-	pub async fn build(self, shared_config: SharedConfig) -> Instance {
+	pub async fn build(self, shared_config: &mut SharedConfig) -> Instance {
 		shared_config
 			.clients
 			.vultr()
@@ -283,7 +283,7 @@ impl InstanceBuilder {
 }
 
 impl Instance {
-	pub async fn start(&self, shared_config: SharedConfig) {
+	pub async fn start(&self, shared_config: &mut SharedConfig) {
 		shared_config
 			.clients
 			.vultr()
@@ -295,7 +295,7 @@ impl Instance {
 			.unwrap();
 	}
 
-	pub async fn halt(&self, shared_config: SharedConfig) {
+	pub async fn halt(&self, shared_config: &mut SharedConfig) {
 		shared_config
 			.clients
 			.vultr()
@@ -307,7 +307,7 @@ impl Instance {
 			.unwrap();
 	}
 
-	pub async fn reboot(&self, shared_config: SharedConfig) {
+	pub async fn reboot(&self, shared_config: &mut SharedConfig) {
 		shared_config
 			.clients
 			.vultr()
@@ -321,7 +321,7 @@ impl Instance {
 			.unwrap();
 	}
 
-	pub async fn delete(&self, shared_config: SharedConfig) {
+	pub async fn delete(&self, shared_config: &mut SharedConfig) {
 		shared_config
 			.clients
 			.vultr()
@@ -332,7 +332,7 @@ impl Instance {
 			.unwrap();
 	}
 
-	pub async fn reinstall(&self, hostname: String, shared_config: SharedConfig) {
+	pub async fn reinstall(&self, hostname: String, shared_config: &mut SharedConfig) {
 		shared_config
 			.clients
 			.vultr()
@@ -349,7 +349,7 @@ impl Instance {
 			.unwrap();
 	}
 
-	pub async fn bandwidth(&self, shared_config: SharedConfig) -> HashMap<String, Bandwidth> {
+	pub async fn bandwidth(&self, shared_config: &mut SharedConfig) -> HashMap<String, Bandwidth> {
 		shared_config
 			.clients
 			.vultr()

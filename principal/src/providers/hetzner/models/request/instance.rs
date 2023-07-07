@@ -291,6 +291,7 @@ pub enum DedicatedX86 {
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InstanceBuilder {
 	pub name: String,
+	pub region: Region,
 	pub automount: Option<bool>,
 	pub datacenter: Option<String>,
 	pub firewalls: Option<Vec<Firewall>>,
@@ -316,6 +317,7 @@ impl InstanceBuilder {
 	pub fn new() -> Self {
 		InstanceBuilder {
 			automount: None,
+			region: Region::Unknown,
 			datacenter: None,
 			firewalls: None,
 			image: String::new(),

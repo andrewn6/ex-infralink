@@ -113,12 +113,12 @@ impl Manager {
 
         Ok(resp)
     }
-    async fn get_hetzner_instances(&self) -> Result<Vec<Instance>, reqwest::Error> {
+    async fn get_hetzner_instances(&self) -> Result<Vec<HetznerInstance>, reqwest::Error> {
         let resp = self.client.get("https://api.hetzner.cloud/v1/servers")
             .bearer_auth(&self.hetzner_key)
             .send()
             .await?
-            .json::<Vec<Instance>>()
+            .json::<Vec<HetznerInstance>>()
             .await?;
 
         Ok(resp)
@@ -155,18 +155,18 @@ impl Manager {
                             }
                             "hetzner" => {
                                 for region_str in &rule.regions {
-                                    let region = HetznerRegions::from(HetznerRegions::Helsinki);
+                                    let region = crate::providers::hetzner::models::request::region::Region::Helsinki;
                                     let count = instance_count.get(region.to_string().as_str()).unwrap_or(&0);
                                     match count {
                                         c if c < &&rule.instance_count => {
-                                            println!("Need to start {} instances in region {}", rule.instance_count - c, region);
+                                            println!("Need to start {} instances in region {:?}", rule.instance_count - c, region);
                                             let instance = HetznerInstanceBuilder::new()
                                                 .region(region.clone())
                                                 .build(shared_config).await;
                                             instance.start(&mut shared_config).await;
                                         }
                                         c if c > &rule.instance_count => {
-                                            println!("Need to stop {} instances in region {} on ", c - rule.instance_count, region);
+                                            println!("Need to stop {} instances in region {:?} on ", c - rule.instance_count, region);
                                             for instance in instances.iter().filter(|i| i.region == region && i.provider == rule.provider) {
                                                 instance.halt(&mut shared_config).await;
                                             }

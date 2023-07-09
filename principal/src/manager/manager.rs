@@ -162,7 +162,7 @@ impl Manager {
                                             println!("Need to start {} instances in region {:?}", rule.instance_count - c, region);
                                             let instance = HetznerInstanceBuilder::new()
                                                 .region(region.clone())
-                                                .build(shared_config).await;
+                                                .build(&mut shared_config).await;
                                             instance.start(&mut shared_config).await;
                                         }
                                         c if c > &rule.instance_count => {

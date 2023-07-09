@@ -1,10 +1,14 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 
 use crate::shared_config::SharedConfig;
 
 use super::region::Region;
+use dotenv_codegen::dotenv;
+
+const HETZNER_API_KEY: &str = dotenv!("HETZNER_API_KEY");
 
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Architecture {
@@ -290,8 +294,8 @@ pub enum DedicatedX86 {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct InstanceBuilder {
-	pub name: String,
 	pub region: Region,
+	pub name: String,
 	pub automount: Option<bool>,
 	pub datacenter: Option<String>,
 	pub firewalls: Option<Vec<Firewall>>,
@@ -314,6 +318,12 @@ pub struct Firewall {
 }
 
 impl InstanceBuilder {
+
+	pub fn region(mut self, region: Region) -> Self {
+        self.region = region;
+        self
+    }
+
 	pub fn new() -> Self {
 		InstanceBuilder {
 			automount: None,
@@ -408,8 +418,19 @@ impl InstanceBuilder {
 	pub fn volumes(mut self, volumes: Vec<u64>) -> Self {
 		self.volumes = volumes;
 		self
-	}
+	}	
 
+	pub async fn start(&self, shared_config: &mut SharedConfig) {
+		shared_config
+			.clients
+			.hetzner()
+			.post("https://api.hetzner.cloud/v1/servers/{}/actions/poweron")
+			.bearer_auth(dotenv!("HETZNER_API_KEY"))
+			.send()
+			.await
+			.unwrap();
+	}
+	
 	pub async fn build(self, shared_config: &mut SharedConfig) -> Instance {
 		shared_config
 			.clients

@@ -317,6 +317,18 @@ pub struct Firewall {
 	id: u64,
 }
 
+impl Instance {
+	pub async fn start(&self, shared_config: &mut SharedConfig) {
+		shared_config
+			.clients
+			.hetzner()
+			.post("https://api.hetzner.cloud/v1/servers/{}/actions/poweron")
+			.bearer_auth(dotenv!("HETZNER_API_KEY"))
+			.send()
+			.await
+			.unwrap();
+	}
+}
 impl InstanceBuilder {
 
 	pub fn region(mut self, region: Region) -> Self {
@@ -419,17 +431,6 @@ impl InstanceBuilder {
 		self.volumes = volumes;
 		self
 	}	
-
-	pub async fn start(&self, shared_config: &mut SharedConfig) {
-		shared_config
-			.clients
-			.hetzner()
-			.post("https://api.hetzner.cloud/v1/servers/{}/actions/poweron")
-			.bearer_auth(dotenv!("HETZNER_API_KEY"))
-			.send()
-			.await
-			.unwrap();
-	}
 	
 	pub async fn build(self, shared_config: &mut SharedConfig) -> Instance {
 		shared_config

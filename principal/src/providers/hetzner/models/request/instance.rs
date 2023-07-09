@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 
 use crate::shared_config::SharedConfig;
 

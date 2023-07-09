@@ -4,7 +4,6 @@ use reqwest::Client;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::postgres::PgPool;
 use dotenv_codegen::dotenv;
-use futures::future::join_all;
 use crate::rules::rules::Rule;
 use crate::shared_config::SharedConfig;
 
@@ -134,7 +133,7 @@ impl Manager {
         Ok(resp)
     }
 
-    pub async fn manage(&self, shared_config: SharedConfig) {
+    pub async fn manage(&self, mut shared_config: SharedConfig) {
         loop {
             match self.get_instances().await {
                 Ok(instances) => {
@@ -142,7 +141,7 @@ impl Manager {
                     for rule in &self.rules {
                         match rule.provider.as_str() {
                             "vultr" => {
-                                for region_str in &rule.regions {
+                                for _region_str in &rule.regions {
                                     let region = VultrRegions::from(VultrRegions::NorthAmerica(NewJersey));
                                     let count = instance_count.get(region.to_string().as_str()).unwrap_or(&0);
                                     match count {
@@ -154,7 +153,7 @@ impl Manager {
                                             instance.start(&mut shared_config);
                                         },
                                         c if c > &rule.instance_count => {
-                                            println!("Need to shop {} instances in region {}", c - rule.instance_count, region);
+                                            println!("Need to stop {} instances in region {}", c - rule.instance_count, region);
                                             for any_instance in instances.iter().filter(|i| {
                                                 if let AnyInstance::Vultr(instance) = i {
                                                     instance.region == region && instance.provider == rule.provider
@@ -172,8 +171,8 @@ impl Manager {
                                 }
                             }
                             "hetzner" => {
-                                for region_str in &rule.regions {
-                                    let region = crate::providers::hetzner::models::request::region::Region::Helsinki;
+                                for _region_str in &rule.regions {
+                                    let region = HetznerRegions::Helsinki;
                                     let count = instance_count.get(region.to_string().as_str()).unwrap_or(&0);
                                     match count {
                                         c if c < &&rule.instance_count => {
@@ -200,6 +199,11 @@ impl Manager {
                                         _ => (),
                                     }
                                 }
+                            }
+                            _ => {
+                                println!("Unsupported provider: {}", rule.provider);
+                                // If you want to handle this situation more robustly, you could
+                                // return an error or take other actions here.
                             }
                         }
                     }

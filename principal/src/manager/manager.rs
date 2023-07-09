@@ -31,6 +31,11 @@ pub struct Manager {
     hetzner_key: String,
 }
 
+pub enum AnyInstance {
+    Vultr(Instance),
+    Hetzner(HetznerInstance),
+}
+
 impl Manager {
     pub async fn new() -> Result<Self, sqlx::Error> {
         let database_url = dotenv!("COCKROACH_DB_URL");
@@ -74,22 +79,27 @@ impl Manager {
         Ok(rules)
     }
 
-    pub async fn get_instances(&self) -> Result<Vec<Instance>, reqwest::Error> {
+    pub async fn get_instances(&self) -> Result<Vec<AnyInstance>, reqwest::Error> {
         let vultr_future = self.get_vultr_instances();
         let hetzner_future = self.get_hetzner_instances();
 
-        let results = join_all(vec![vultr_future, hetzner_future]).await;
+        let results = futures::try_join!(vultr_future, hetzner_future /*, oracle_future */); 
 
-        let mut instances = Vec::new();
+        match results {
+            Ok((vultr_instances, hetzner_instances)) => {
+                let mut instances: Vec<AnyInstance>  = Vec::new();
 
-        for result in results {
-            match result {
-                Ok(mut data) => instances.append(&mut data),
-                Err(e) => return Err(e),
+                for instance in vultr_instances {
+                    instances.push(AnyInstance::Vultr(instance));
+                }
+                for instance in hetzner_instances {
+                    instances.push(AnyInstance::Hetzner(instance));
+                }
+
+                Ok(instances)
             }
+            Err(e) => Err(e),
         }
-
-        Ok(instances)
     }
 
     async fn get_vultr_instances(&self) -> Result<Vec<Instance>, reqwest::Error> {
@@ -144,11 +154,19 @@ impl Manager {
                                             instance.start(&mut shared_config);
                                         },
                                         c if c > &rule.instance_count => {
-                                            println!("Need to stop {} instances in region {}", c - rule.instance_count, region);
-                                            for instance in instances.iter().filter(|i| i.region == region && i.provider == rule.provider) {
-                                                instance.halt(&mut shared_config).await;
+                                            println!("Need to shop {} instances in region {}", c - rule.instance_count, region);
+                                            for any_instance in instances.iter().filter(|i| {
+                                                if let AnyInstance::Vultr(instance) = i {
+                                                    instance.region == region && instance.provider == rule.provider
+                                                } else {
+                                                    false
+                                                }
+                                            }) {
+                                                if let AnyInstance::Vultr(instance) = any_instance {
+                                                    instance.halt(&mut shared_config).await;
+                                                }
                                             }
-                                        },
+                                        }
                                         _ => (),
                                     }
                                 }
@@ -183,11 +201,15 @@ impl Manager {
         }
     }
 
-    fn count_instances(&self, instances: &Vec<Instance>) -> HashMap<String, i32> {
+    fn count_instances(&self, instances: &Vec<AnyInstance>) -> HashMap<String, i32> {
         let mut instance_count: HashMap<String, i32> = HashMap::new();
 
-        for instance in instances {
-            let region = instance.region.to_string();
+        for any_instance in instances {
+            let region = match any_instance {
+                AnyInstance::Vultr(instance) => instance.region.to_string(),
+                AnyInstance::Hetzner(instance) => instance.region.to_string()
+            };
+
             let count = instance_count.entry(region).or_insert(0);
             *count += 1;
         }

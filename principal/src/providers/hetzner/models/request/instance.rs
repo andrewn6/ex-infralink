@@ -329,8 +329,8 @@ impl Instance {
 			.unwrap();
 	}
 }
-impl InstanceBuilder {
 
+impl InstanceBuilder {
 	pub fn region(mut self, region: Region) -> Self {
         self.region = region;
         self

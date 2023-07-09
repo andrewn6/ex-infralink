@@ -222,6 +222,7 @@ pub struct Instance {
 	pub datacenter: DataCenter,
 	pub image: ImageObject,
 	pub included_traffic: u64,
+	pub region: Region,
 	pub ingoing_traffic: u64,
 	pub outgoing_traffic: Option<u64>,
 	pub iso: Option<Iso>,
@@ -237,6 +238,7 @@ pub struct Instance {
 	pub server_type: ServerType,
 	pub status: InstanceStatus,
 	pub volumes: Vec<u64>,
+	pub provider: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

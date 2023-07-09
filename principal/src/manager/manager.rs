@@ -183,12 +183,20 @@ impl Manager {
                                                 .build(&mut shared_config).await;
                                             instance.start(&mut shared_config).await;
                                         }
-                                        c if c > &rule.instance_count => {
-                                            println!("Need to stop {} instances in region {:?} on ", c - rule.instance_count, region);
-                                            for instance in instances.iter().filter(|i| i.region == region && i.provider == rule.provider) {
-                                                instance.halt(&mut shared_config).await;
+                                       c if c > &rule.instance_count => {
+                                            println!("Need to stop {} instances in region {:?}", rule.instance_count - c, region);
+                                            for any_instance in instances.iter().filter(|i| {
+                                                if let AnyInstance::Hetzner(instance) = i {
+                                                    instance.region == region && instance.provider == rule.provider
+                                                } else {
+                                                    false
+                                                }
+                                            }) {
+                                                if let AnyInstance::Vultr(instance) = any_instance {
+                                                    instance.halt(&mut shared_config).await;
+                                                }
                                             }
-                                        },
+                                       }
                                         _ => (),
                                     }
                                 }

@@ -61,17 +61,22 @@ pub async fn get_logs(container_id: &str, filter: LogFilter, tx: broadcast::Send
                 let parts: Vec<&str> = log_data.splitn(2, ' ').collect();
                 let timestamp = parts[0].parse::<DateTime<Utc>>()?;
                 let text = parts[1].to_string();
+                
                 let message = LogMessage {
                     source: container_id.to_string(),
                     timestamp,
                     text,
                 };
+
                 if filter.matches(&message) {
                     let topic = "logs_topic";
                     let payload = format!("{:?}", message);
                     let record = FutureRecord::to(topic).payload(&payload).key("");
 
-                    producer.send(record, Timeout::Never).await;
+                    match producer.send(record, Timeout::Never).await {
+                        Ok(_) => {}
+                        Err(e) => error!("Error sending message to Kafka: {:?}", e),
+                    }
                 }
 
                 let mut block = Block::new();
@@ -80,14 +85,15 @@ pub async fn get_logs(container_id: &str, filter: LogFilter, tx: broadcast::Send
                 let timestamp_seconds = timestamp.timestamp(); // timestamp() returns i64, cast it to u32
                 let timezone_offset_seconds = Local::now().offset().fix().local_minus_utc() as u32;
 
-            let row = vec![
-                ("source".to_string(), Value::String(Arc::new(message.source.into_bytes()))),
-                ("timestamp".to_string(), Value::DateTime64(timestamp_seconds, (timezone_offset_seconds, Tz::UTC))),
-                ("text".to_string(), Value::String(Arc::new(message.text.into_bytes()))),
-            ];
+                let row = vec![
+                    ("source".to_string(), Value::String(Arc::new(message.source.into_bytes()))),
+                    ("timestamp".to_string(), Value::DateTime64(timestamp_seconds, (timezone_offset_seconds, Tz::UTC))),
+                    ("text".to_string(), Value::String(Arc::new(message.text.into_bytes()))),
+                ];
                 
-                block.push(row);
-
+                if let Err(e) = block.push(row) {
+                    error!("Error pushing row to block: {}", e);
+                }
 
                 let mut client = pool.get_handle().await?;
             

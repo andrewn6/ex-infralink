@@ -30,7 +30,8 @@ pub async fn create_manager_rules() -> Result<(), Box<dyn std::error::Error>> {
     let providers = vec![
         ("vultr", "us-west", 1),
         ("vultr", "us-east", 1),
-        ("host_hatch", "eu-west", 1),
+        ("hetzner", "eu-west", 1),
+        ("hetnzer", "eu-central", 1)
     ];
 
     for (provider, region, instance_count) in providers {

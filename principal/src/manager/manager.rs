@@ -202,8 +202,6 @@ impl Manager {
                             }
                             _ => {
                                 println!("Unsupported provider: {}", rule.provider);
-                                // If you want to handle this situation more robustly, you could
-                                // return an error or take other actions here.
                             }
                         }
                     }

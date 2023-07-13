@@ -9,6 +9,22 @@ pub struct VolumeConfig {
     label: String,
     block_type: String,
 }
+
+#[derive(Serialize)]
+pub struct VolumeAttachmentConfig {
+    instance_id: String,
+    live: bool,
+}
+
+impl VolumeAttachmentConfig {
+    pub fn new(instance_id: &str, live: bool) -> Self {
+        Self {
+            instance_id: instance_id.to_string(),
+            live,            
+        }
+    }
+}
+
 pub struct VolumeManager {
     config: VolumeManagerConfig,
     client: reqwest::Client,
@@ -73,6 +89,20 @@ impl VolumeManager {
             id: volume_response.id,
             provider: Provider::Vultr,
         })
+    }
+
+    pub async fn attach_volume_on_vultr(&self, volume_id: &str, config: VolumeAttachmentConfig) -> Result<(), Box<dyn Error>> {
+        let response = self.client.post(&format!("https://api.vultr.com/v2/blocks/{}/attach", volume_id))
+            .headers(self.vultr_headers())
+            .json(&config)
+            .send()
+            .await?;
+        
+        if !response.status().is_success() {
+            return Err(format!("Failed to attach volume {}: {}", volume_id, response.text().await?).into());
+        }
+
+        Ok(())
     }
 
     pub async fn create_volume_on_hetzner(&self, volume_config: VolumeConfig) -> Result<Volume, Box<dyn Error>> {

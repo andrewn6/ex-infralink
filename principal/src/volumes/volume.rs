@@ -1,6 +1,6 @@
 use std::error::Error;
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, AUTHORIZATION};
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Serialize)]
 pub struct VolumeConfig {
@@ -12,6 +12,13 @@ pub struct VolumeConfig {
 pub struct VolumeManager {
     config: VolumeManagerConfig,
     client: reqwest::Client,
+}
+
+#[derive(Deserialize)]
+struct VultrBlockResponse {
+    id: String,
+    date_created: String,
+    size_gb: i32,
 }
 
 #[derive(Debug)]
@@ -56,10 +63,14 @@ impl VolumeManager {
             return Err("Failed to create volume".into());
         }
 
-        let volume_id = "a";
+        let volume_response: VultrBlockResponse = response.json().await?;
+        
+        println!("Created a new volume with ID: {}", volume_response.id);
+        println!("Volume size: {} GB", volume_response.size_gb);
+        println!("Volume created at: {}", volume_response.date_created);
 
         Ok(Volume {
-            id: volume_id.to_string(),
+            id: volume_response.id,
             provider: Provider::Vultr,
         })
     }

@@ -9,7 +9,6 @@ const VULTR_API_KEY: &str = dotenv!("VULTR_API_KEY");
 const HETZNER_API_KEY: &str = dotenv!("HETZNER_API_KEY");
 
 pub struct VolumeManager {
-    config: VolumeManagerConfig,
     client: reqwest::Client,
 }
 
@@ -33,6 +32,19 @@ impl VultrVolumeAttachmentConfig {
         Self {
             instance_id: instance_id.to_string(),
             live,            
+        }
+    }
+}
+
+#[derive(Serialize)]
+pub struct VultrVolumeDetachConfig {
+    live: bool,
+}
+
+impl VultrVolumeDetachConfig {
+    pub fn new(live: bool) -> Self {
+        Self {
+            live,
         }
     }
 }
@@ -131,7 +143,6 @@ pub struct Volume {
 impl VolumeManager {
     pub fn new(config: VolumeManagerConfig) -> VolumeManager {
         VolumeManager {
-            config, 
             client: reqwest::Client::new(),
         }
     }
@@ -139,14 +150,14 @@ impl VolumeManager {
     fn vultr_headers(&self) -> HeaderMap {
         let mut headers = HeaderMap::new();
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", self.config.vultr_api_key)).unwrap());
+        headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", VULTR_API_KEY)).unwrap());
         headers
     }
 
     fn hetzner_headers(&self) -> HeaderMap {
         let mut headers = HeaderMap::new();
         headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", self.config.hetzner_api_key)).unwrap());
+        headers.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {}", HETZNER_API_KEY)).unwrap());
         headers
     }
 
@@ -192,8 +203,6 @@ impl VolumeManager {
         Ok(volumes_response.blocks)
     }
 
-
-
     pub async fn create_volume_on_vultr(&self, volume_config: VultrVolumeConfig)  -> Result<Volume, Box<dyn Error>> {
         let response = self.client.post("https://api.vultr.com/v2/blocks")
             .headers(self.vultr_headers())
@@ -226,6 +235,20 @@ impl VolumeManager {
         
         if !response.status().is_success() {
             return Err(format!("Failed to attach volume {}: {}", volume_id, response.text().await?).into());
+        }
+
+        Ok(())
+    }
+
+    pub async fn detach_volume_on_vultr(&self, volume_id: &str, config: VultrVolumeDetachConfig) -> Result<(), Box<dyn Error>> {
+        let response = self.client.post(&format!("https://api.vultr.com/v2/blocks/{}/detach", volume_id))
+            .headers(self.vultr_headers())
+            .json(&config)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            return Err(format!("Failed to detach volume {}: {}", volume_id, response.text().await?).into());
         }
 
         Ok(())

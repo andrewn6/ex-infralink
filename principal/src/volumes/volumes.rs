@@ -91,7 +91,7 @@ impl HetznerVolumeResizeConfig {
         }
     }
 }
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 pub struct HetznerVolumeAttachmentConfig {
     automount: bool,
     server: i32,
@@ -124,12 +124,6 @@ struct HetznerVolumesResponse {
     volumes: Vec<HetznerVolume>,
 }
 
-#[derive(Debug)]
-pub struct VolumeManagerConfig {
-    hetzner_api_key: String,
-    vultr_api_key: String,
-}
-
 enum Provider {
     Hetzner,
     Vultr,
@@ -141,7 +135,7 @@ pub struct Volume {
 }
 
 impl VolumeManager {
-    pub fn new(config: VolumeManagerConfig) -> VolumeManager {
+    pub fn volume() -> Self {
         VolumeManager {
             client: reqwest::Client::new(),
         }

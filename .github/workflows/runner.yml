@@ -19,4 +19,4 @@ jobs:
         override: true
         components: rustfmt
     - name: Build
-      run: cargo build -p services/runner
+      run: cargo build -p runner

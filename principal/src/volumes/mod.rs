@@ -1,1 +1,1 @@
-pub mod volume;
+pub mod volumes;

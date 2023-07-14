@@ -20,5 +20,8 @@ jobs:
         toolchain: stable
         override: true
         components: rustfmt
+    - name: Generate protobuf 
+      run: |
+        find src/proto -name "*.proto" -exec protoc --experimental_allow_proto3_optional --rust_out=src/proto --proto_path=src/proto {} +
     - name: Build
       run: cargo build -p worker

@@ -8,7 +8,6 @@ use hyper::Server;
 use reqwest::{Client, Url};
 
 use webhook::webhook::handle_request as handle_webhook;
-use webhook::webhook::webhook_route;
 
 use nixpacks::nixpacks::builder::docker::DockerBuilderOptions as NixpacksOptions;
 use nixpacks::nixpacks::plan::generator::GeneratePlanOptions;
@@ -169,7 +168,7 @@ async fn handle(req: Request<Body>, db_pool: Arc<PgPool>) -> Result<Response<Bod
 			} else {
 				Vec::new()
 			};
-			
+
 			let result = create_docker_image(
 				&repo_dir,
 				envs,

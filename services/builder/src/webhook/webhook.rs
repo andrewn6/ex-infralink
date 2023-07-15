@@ -1,7 +1,5 @@
-use hyper::{Body, Request, Response, Server, StatusCode, Method};
-use hyper::service::{make_service_fn, service_fn};
+use hyper::{Body, Request, Response, StatusCode, Method};
 use serde::Deserialize;
-use std::net::SocketAddr;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
 use reqwest::Client;
@@ -101,17 +99,4 @@ pub async fn handle_request(req: Request<Body>) -> Result<Response<Body>, hyper:
                     .unwrap())
             }        
         }
-}
-pub async fn webhook_route(addr: SocketAddr) {
-    let make_service = make_service_fn(|_conn| async {
-        Ok::<_, hyper::Error>(service_fn(handle_request))
-    });
-
-    loop {
-        let server = Server::bind(&addr).serve(make_service);
-
-        if let Err(e) = server.await {
-            eprintln!("server error: {}", e);
-        }
-    }
 }

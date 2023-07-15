@@ -234,6 +234,27 @@ impl VolumeManager {
         Ok(())
     }
 
+    pub async fn resize_volume_on_vultr(&self, block_id: &str, new_label: &str, new_size_gb: i32) -> Result<(), Box<dyn Error>> {
+        let resize_config = serde_json::json!({
+            "label": new_label,
+            "size_gb": new_size_gb,
+        });
+
+        let response = self.client.patch(&format!("https://api.vultr.com/v2/blocks/{}", block_id))
+            .headers(self.vultr_headers())
+            .json(&resize_config)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            return Err(format!("Failed to resize volume {}: {}", block_id, response.text().await?).into());
+        }
+
+        println!("Resized volume with ID: {}", block_id);
+
+        Ok(())
+    }
+
     pub async fn detach_volume_on_vultr(&self, volume_id: &str, config: VultrVolumeDetachConfig) -> Result<(), Box<dyn Error>> {
         let response = self.client.post(&format!("https://api.vultr.com/v2/blocks/{}/detach", volume_id))
             .headers(self.vultr_headers())

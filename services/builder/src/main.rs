@@ -86,6 +86,53 @@ fn convert_to_nixpacks_options(local_options: &DockerBuilderOptions) -> Nixpacks
 
 async fn handle(req: Request<Body>, db_pool: Arc<PgPool>) -> Result<Response<Body>, Error> {
 	match (req.method(), req.uri().path()) {
+
+		(&Method::GET, "/") => {
+			let html = r#"<!DOCTYPE html>
+			<html>
+			<style>
+			pre {
+    			background-color: #f5f5f5;
+    			padding: 3px;
+			}
+			</style>
+			<body>
+			<h1>Builder Server</h1>
+			<p>This is the builder service for Infralink, it uses nixpacks to build and create a docker image out of a repository/local path./p>
+
+			<h2>API</h2>
+			<p>/build</p>
+			<pre><code>curl -X POST -H "Content-Type: application/json" -d '{
+				"path": "https://github.com/username/repo.git",
+				"name": "image-name",
+				"build_options": {
+				  "print_dockerfile": false,
+				  "tags": ["v1.0", "latest"],
+				  "labels": [],
+				  "quiet": false,
+				  "no_cache": false,
+				  "inline_cache": false,
+				  "platform": ["linux/amd64"],
+				  "current_dir": false,
+				  "no_error_without_start": false,
+				  "verbose": false
+				}
+			  }' http://localhost:8084/build</code></pre>
+			  
+			  <p>/logs</p>
+			  <pre><code>curl -X GET \
+			  "http://localhost:8084/logs?container_id=<container_id>&start_time=<start_time>&end_time=<end_time>"</code></pre>
+			</body>
+			</html>"#;
+
+			let response = Response::builder()
+				.status(StatusCode::OK)
+				.header("Content-Type", "text/html")
+				.body(Body::from(html))
+				.unwrap();
+
+			Ok(response)
+		},
 		(&Method::POST, "/webhook") => {
 			handle_webhook(req).await
 		}

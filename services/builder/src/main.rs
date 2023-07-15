@@ -17,7 +17,7 @@ use nixpacks::{create_docker_image, generate_build_plan};
 use logs::logs::get_logs;
 use logs::logs::LogFilter;
 use dotenv::dotenv;
-use serde::{Deserialize};
+use serde::Deserialize;
 use serde_json::json;
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
@@ -25,7 +25,7 @@ use sqlx::postgres::PgPoolOptions;
 use git2::Repository;
 use tempfile::tempdir;
 use colored::*;
-use std::sync::{Arc};
+use std::sync::Arc;
 use chrono::{Utc, DateTime};
 use tokio::sync::broadcast;
 
@@ -35,7 +35,7 @@ extern crate chrono_tz;
 struct BuildInfo {
 	pub path: String,
 	pub name: String,
-	pub envs: Vec<String>,
+	pub envs: Option<Vec<String>>,
 	pub build_options: DockerBuilderOptions,
 }
 
@@ -134,10 +134,17 @@ async fn handle(req: Request<Body>, db_pool: Arc<PgPool>) -> Result<Response<Bod
 
 			let mut conn = db_pool.acquire().await.unwrap();
 			let plan_options = GeneratePlanOptions::default(); // Generate default options
+			
+			
+			let envs: Vec<&str> = if let Some(inner_vec) = &build_info.envs {
+				inner_vec.iter().map(|inner_str| inner_str.as_ref()).collect()
+			} else {
+				Vec::new()
+			};
 
 			let plan = generate_build_plan(
 				&build_info.path,
-				build_info.envs.iter().map(AsRef::as_ref).collect(),
+				envs,
 				&plan_options
 			);
 
@@ -156,10 +163,16 @@ async fn handle(req: Request<Body>, db_pool: Arc<PgPool>) -> Result<Response<Bod
 				Ok(_) => eprintln!("DB insert success"),
 				Err(e) => eprintln!("DB insert error: {}", e), // Or handle the error more properly
 			}
-
+			
+			let envs: Vec<&str> = if let Some(inner_vec) = &build_info.envs {
+				inner_vec.iter().map(|inner_str| inner_str.as_ref()).collect()
+			} else {
+				Vec::new()
+			};
+			
 			let result = create_docker_image(
 				&repo_dir,
-				build_info.envs.iter().map(AsRef::as_ref).collect(),
+				envs,
 				&plan_options,
 				&nixpack_options,
 			).await;
@@ -260,8 +273,6 @@ async fn main() {
 	);
 
 	let addr = ([0, 0, 0 ,0], 8084).into();
-
-	webhook_route(addr).await;
 	
 	let make_svc = make_service_fn(move |_conn| {
 		let db_pool = Arc::clone(&db_pool);

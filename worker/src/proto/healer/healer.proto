@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+package healer;
+
+service Healer {
+    rpc StartHealing (StartHealingRequest) returns (StartHealingResponse) {}
+    rpc StopHealing (StopHealingRequest) returns (StopHealingResponse) {}
+    rpc Heal (HealRequest) returns (HealResponse) {}
+}
+
+message StartHealingRequest {}
+
+message StartHealingResponse {
+    string message = 1;
+}
+
+message StopHealingRequest {}
+
+message StopHealingResponse {
+    string message = 1;
+}
+
+message HealRequest {
+    string container_id = 1;
+}
+
+message HealResponse {
+    string message = 1;
+}

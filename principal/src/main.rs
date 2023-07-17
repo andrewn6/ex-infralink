@@ -8,6 +8,8 @@ use dotenv::dotenv;
 pub mod rules;
 pub mod manager;
 pub mod db;
+pub mod gpu;
+pub mod volumes;
 
 use rules::rules::create_manager_rules;
 
@@ -37,5 +39,10 @@ async fn main() {
     }
 	
 	// Only uncomment if changes are made
-	create_manager_rules().await;
+	match create_manager_rules().await {
+		Ok(_) => println!("Data creation successful"),
+		Err(err) => eprintln!("Data creation failed: {}", err),
+	}
+
+	println!("Principal Server listening on {}", addr.to_string());
 }

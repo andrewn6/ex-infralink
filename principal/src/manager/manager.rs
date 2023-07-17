@@ -68,9 +68,12 @@ impl Manager {
 
     for rec in recs {
         let rule = Rule {
-            provider: rec.provider,
-            regions: vec![rec.region],
-            instance_count: rec.instance_count,
+            provider: todo!(),
+            regions: todo!(),
+            instance_count: todo!(),
+           // provider: rec.provider,
+            //regions: vec![rec.region],
+            //instance_count: rec.instance_count,
         };
             rules.push(rule);
         }

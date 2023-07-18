@@ -18,15 +18,47 @@ pub struct StopHealingResponse {
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct HealRequest {
-    #[prost(string, tag = "1")]
-    pub container_id: ::prost::alloc::string::String,
+pub struct HealSelectiveRequest {
+    #[prost(string, repeated, tag = "1")]
+    pub container_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
-pub struct HealResponse {
+pub struct HealSelectiveResponse {
     #[prost(string, tag = "1")]
     pub message: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetHealingReportRequest {}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetHealingReportResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub healing_events: ::prost::alloc::vec::Vec<HealingReport>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UpdateRequest {
+    #[prost(string, repeated, tag = "1")]
+    pub container_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct UpdateResponse {
+    #[prost(string, tag = "1")]
+    pub message: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct HealingReport {
+    #[prost(string, tag = "1")]
+    pub container_id: ::prost::alloc::string::String,
+    /// Timestamp as a string in RFC 3339 format
+    #[prost(string, tag = "2")]
+    pub timestamp: ::prost::alloc::string::String,
+    #[prost(string, tag = "3")]
+    pub event: ::prost::alloc::string::String,
 }
 /// Generated client implementations.
 pub mod healer_client {
@@ -135,10 +167,10 @@ pub mod healer_client {
             );
             self.inner.unary(request.into_request(), path, codec).await
         }
-        pub async fn heal(
+        pub async fn heal_selective(
             &mut self,
-            request: impl tonic::IntoRequest<super::HealRequest>,
-        ) -> Result<tonic::Response<super::HealResponse>, tonic::Status> {
+            request: impl tonic::IntoRequest<super::HealSelectiveRequest>,
+        ) -> Result<tonic::Response<super::HealSelectiveResponse>, tonic::Status> {
             self.inner
                 .ready()
                 .await
@@ -149,7 +181,47 @@ pub mod healer_client {
                     )
                 })?;
             let codec = tonic::codec::ProstCodec::default();
-            let path = http::uri::PathAndQuery::from_static("/healer.Healer/Heal");
+            let path = http::uri::PathAndQuery::from_static(
+                "/healer.Healer/HealSelective",
+            );
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        pub async fn get_healing_report(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetHealingReportRequest>,
+        ) -> Result<tonic::Response<super::GetHealingReportResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/healer.Healer/GetHealingReport",
+            );
+            self.inner.unary(request.into_request(), path, codec).await
+        }
+        pub async fn perform_rolling_update(
+            &mut self,
+            request: impl tonic::IntoRequest<super::UpdateRequest>,
+        ) -> Result<tonic::Response<super::UpdateResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/healer.Healer/PerformRollingUpdate",
+            );
             self.inner.unary(request.into_request(), path, codec).await
         }
     }
@@ -169,10 +241,18 @@ pub mod healer_server {
             &self,
             request: tonic::Request<super::StopHealingRequest>,
         ) -> Result<tonic::Response<super::StopHealingResponse>, tonic::Status>;
-        async fn heal(
+        async fn heal_selective(
             &self,
-            request: tonic::Request<super::HealRequest>,
-        ) -> Result<tonic::Response<super::HealResponse>, tonic::Status>;
+            request: tonic::Request<super::HealSelectiveRequest>,
+        ) -> Result<tonic::Response<super::HealSelectiveResponse>, tonic::Status>;
+        async fn get_healing_report(
+            &self,
+            request: tonic::Request<super::GetHealingReportRequest>,
+        ) -> Result<tonic::Response<super::GetHealingReportResponse>, tonic::Status>;
+        async fn perform_rolling_update(
+            &self,
+            request: tonic::Request<super::UpdateRequest>,
+        ) -> Result<tonic::Response<super::UpdateResponse>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct HealerServer<T: Healer> {
@@ -313,22 +393,26 @@ pub mod healer_server {
                     };
                     Box::pin(fut)
                 }
-                "/healer.Healer/Heal" => {
+                "/healer.Healer/HealSelective" => {
                     #[allow(non_camel_case_types)]
-                    struct HealSvc<T: Healer>(pub Arc<T>);
-                    impl<T: Healer> tonic::server::UnaryService<super::HealRequest>
-                    for HealSvc<T> {
-                        type Response = super::HealResponse;
+                    struct HealSelectiveSvc<T: Healer>(pub Arc<T>);
+                    impl<
+                        T: Healer,
+                    > tonic::server::UnaryService<super::HealSelectiveRequest>
+                    for HealSelectiveSvc<T> {
+                        type Response = super::HealSelectiveResponse;
                         type Future = BoxFuture<
                             tonic::Response<Self::Response>,
                             tonic::Status,
                         >;
                         fn call(
                             &mut self,
-                            request: tonic::Request<super::HealRequest>,
+                            request: tonic::Request<super::HealSelectiveRequest>,
                         ) -> Self::Future {
                             let inner = self.0.clone();
-                            let fut = async move { (*inner).heal(request).await };
+                            let fut = async move {
+                                (*inner).heal_selective(request).await
+                            };
                             Box::pin(fut)
                         }
                     }
@@ -337,7 +421,85 @@ pub mod healer_server {
                     let inner = self.inner.clone();
                     let fut = async move {
                         let inner = inner.0;
-                        let method = HealSvc(inner);
+                        let method = HealSelectiveSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/healer.Healer/GetHealingReport" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetHealingReportSvc<T: Healer>(pub Arc<T>);
+                    impl<
+                        T: Healer,
+                    > tonic::server::UnaryService<super::GetHealingReportRequest>
+                    for GetHealingReportSvc<T> {
+                        type Response = super::GetHealingReportResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetHealingReportRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).get_healing_report(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetHealingReportSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/healer.Healer/PerformRollingUpdate" => {
+                    #[allow(non_camel_case_types)]
+                    struct PerformRollingUpdateSvc<T: Healer>(pub Arc<T>);
+                    impl<T: Healer> tonic::server::UnaryService<super::UpdateRequest>
+                    for PerformRollingUpdateSvc<T> {
+                        type Response = super::UpdateResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::UpdateRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).perform_rolling_update(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = PerformRollingUpdateSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

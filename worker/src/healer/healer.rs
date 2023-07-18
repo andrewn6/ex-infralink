@@ -41,32 +41,44 @@ impl MyHealer {
         let mut healing = self.healing.lock().await;
         *healing = true;
 
+        let mut backoff = Duration::from_secs(1);
         while *self.healing.lock().await {
-            let containers = self.docker.list_containers(Some(ListContainersOptions::<String>{
+            match self.docker.list_containers(Some(ListContainersOptions::<String>{
                 all: true,
                 ..Default::default()
-            })).await.unwrap();
-
-            for container in containers {
-                if let Some(container_id) = &container.id {
-                    let mut stats_stream = self.docker.stats(container_id, None);
+            })).await {
+                Ok(containers) => {
+                    for container in containers {
+                        if let Some(container_id) = &container.id {
+                            let mut stats_stream = self.docker.stats(container_id, None);
             
-                    if let Some(Ok(stat)) = stats_stream.next().await {
-                        if stat.read.is_empty() {
-                            self.docker.remove_container(container_id, Some(RemoveContainerOptions {
-                                force: true,
-                                ..Default::default()
-                            })).await.unwrap();
-            
-                            self.docker.create_container(Some(self.create_options.clone()), self.container_config.clone()).await.unwrap();
+                            if let Some(Ok(stat)) = stats_stream.next().await {
+                                if stat.read.is_empty() {
+                                    self.docker.remove_container(container_id, Some(RemoveContainerOptions {
+                                        force: true,
+                                        ..Default::default()
+                                    })).await.unwrap();
+    
+                                    if let Err(e) = self.docker.create_container(Some(self.create_options.clone()), self.container_config.clone()).await {
+                                        eprintln!("Error creating container: {}", e);
+                                    }
+                                }
+                            }
                         }
                     }
+    
+                    backoff = Duration::from_secs(1);
+                },
+                Err(e) => {
+                    eprintln!("Error listing containers: {}", e);
+                    backoff = std::cmp::min(backoff * 2, Duration::from_secs(60));
                 }
-            }           
-
-            time::sleep(Duration::from_secs(60)).await;
+            }
+    
+            time::sleep(backoff).await;
         }
     }
+    
 
     pub async fn stop(self) {
         let mut healing = self.healing.lock().await;

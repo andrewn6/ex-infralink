@@ -7,6 +7,10 @@ use hello_world::{HelloReply, HelloRequest};
 
 pub mod container;
 
+mod healer {
+    pub mod healer;
+}
+
 use container::logic::MyDockerService;
 use container::stats::MyContainerStatsService;
 use docker::docker_service_server::DockerServiceServer;

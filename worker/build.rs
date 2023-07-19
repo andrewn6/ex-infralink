@@ -10,6 +10,7 @@ fn main() {
 		"./src/proto/helloworld.proto",
 		"./src/proto/container/container.proto",
 		"./src/proto/container/stats.proto",
+		"./src/proto/healer/healer.proto",
 	];
 
 	let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());

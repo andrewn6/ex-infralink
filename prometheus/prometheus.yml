@@ -1,10 +1,7 @@
 global:
-  scrape_interval:     15s
-  evaluation_interval: 15s
+  scrape_interval: 15s 
 
 scrape_configs:
-  - job_name: 'rabbitmq'
+  - job_name: 'envoy'
     static_configs:
-      - targets: ['rabbitmq:15672']
-        labels:
-          instance: 'rabbitmq'
+      - targets: ['localhost:8080']

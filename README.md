@@ -12,7 +12,7 @@ This manages volumes on cloud platforms, pre-warmed instances defined by rules i
 
 `worker`
 
-The worker has logic to create containers, modify them, get statistics from the containers (cpu, memory, network). It also automatically heals containers, and supports selecting healing, and rolling updates. [
+The worker has logic to create containers, modify them, get statistics from the containers (cpu, memory, network). It also automatically heals containers, and supports selecting healing, and rolling updates. 
 
 `builder`
 
@@ -20,7 +20,7 @@ The builder takes a local path or a git repository and builds it using (nixpacks
 
 `runner (REST)`
 
-This pulls an image from a registry and then runs it as a contaner
+This pulls an image from a registry and then runs it as a container.
 
 `scaler`
 

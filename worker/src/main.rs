@@ -3,6 +3,7 @@ use std::sync::Arc;
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 
+use prometheus::Counter;
 use bollard::Docker;
 use bollard::container::{Config, CreateContainerOptions};
 
@@ -108,6 +109,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		container_config,
 		healing: Arc::new(Mutex::new(false)),
 		healing_report: Arc::new(Mutex::new(Vec::new())),
+		container_healed_count: Counter::new("container_healed_count", "Number of containers healed").unwrap(),
 	};
 
 	let reflection_service = tonic_reflection::server::Builder::configure()
@@ -115,7 +117,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		.build()
 		.unwrap();
 
-	println!("GreeterServer listening on {}", addr);
+	println!("Worker listening on {}", addr);
 
 	Server::builder()
 		.add_service(GreeterServer::new(greeter))

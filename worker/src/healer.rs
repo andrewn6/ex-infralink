@@ -60,6 +60,15 @@ pub struct HealingReport {
     #[prost(string, tag = "3")]
     pub event: ::prost::alloc::string::String,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Empty {}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct MetricsResponse {
+    #[prost(string, tag = "1")]
+    pub metrics: ::prost::alloc::string::String,
+}
 /// Generated client implementations.
 pub mod healer_client {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
@@ -224,6 +233,23 @@ pub mod healer_client {
             );
             self.inner.unary(request.into_request(), path, codec).await
         }
+        pub async fn get_metrics(
+            &mut self,
+            request: impl tonic::IntoRequest<super::Empty>,
+        ) -> Result<tonic::Response<super::MetricsResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static("/healer.Healer/GetMetrics");
+            self.inner.unary(request.into_request(), path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -253,6 +279,10 @@ pub mod healer_server {
             &self,
             request: tonic::Request<super::UpdateRequest>,
         ) -> Result<tonic::Response<super::UpdateResponse>, tonic::Status>;
+        async fn get_metrics(
+            &self,
+            request: tonic::Request<super::Empty>,
+        ) -> Result<tonic::Response<super::MetricsResponse>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct HealerServer<T: Healer> {
@@ -500,6 +530,42 @@ pub mod healer_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = PerformRollingUpdateSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/healer.Healer/GetMetrics" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetMetricsSvc<T: Healer>(pub Arc<T>);
+                    impl<T: Healer> tonic::server::UnaryService<super::Empty>
+                    for GetMetricsSvc<T> {
+                        type Response = super::MetricsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::Empty>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move { (*inner).get_metrics(request).await };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetMetricsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

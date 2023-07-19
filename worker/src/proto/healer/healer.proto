@@ -8,6 +8,7 @@ service Healer {
     rpc HealSelective (HealSelectiveRequest) returns (HealSelectiveResponse) {}
     rpc GetHealingReport (GetHealingReportRequest) returns (GetHealingReportResponse) {}
     rpc PerformRollingUpdate (UpdateRequest) returns (UpdateResponse) {}
+    rpc GetMetrics(Empty) returns (MetricsResponse);
 }
 
 message StartHealingRequest {}
@@ -48,4 +49,10 @@ message HealingReport {
     string container_id = 1;
     string timestamp = 2;  // Timestamp as a string in RFC 3339 format
     string event = 3;
+}
+
+message Empty {}
+
+message MetricsResponse {
+    string metrics = 1;
 }

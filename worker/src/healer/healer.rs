@@ -14,8 +14,8 @@ use chrono::{DateTime, Utc};
 use bollard::container::{CreateContainerOptions, RemoveContainerOptions, ListContainersOptions};
 use bollard::Docker;
 
-use healer::healer_server::Healer;
-use healer::{
+use crate::proto_healer::healer_server::Healer;
+use crate::proto_healer::{
     StartHealingRequest,
     StartHealingResponse,
     StopHealingRequest,
@@ -31,11 +31,11 @@ use healer::{
 
 #[derive(Clone)]
 pub struct MyHealer {
-    docker: Docker,
-    create_options: CreateContainerOptions<String>,
-    container_config: bollard::container::Config<String>,
-    healing: Arc<Mutex<bool>>,
-    healing_report: Arc<Mutex<Vec<HealingReport>>>,
+    pub docker: Docker,
+    pub create_options: CreateContainerOptions<String>,
+    pub container_config: bollard::container::Config<String>,
+    pub healing: Arc<Mutex<bool>>,
+    pub healing_report: Arc<Mutex<Vec<HealingReport>>>,
 }
 
 impl MyHealer {
@@ -167,7 +167,7 @@ impl MyHealer {
 }
 
 #[tonic::async_trait]
-impl Healer for MyHealer {
+impl crate::proto_healer::healer_server::Healer for MyHealer {
     async fn start_healing(
         &self,
         _request: Request<StartHealingRequest>,

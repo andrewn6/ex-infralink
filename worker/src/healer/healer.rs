@@ -123,25 +123,46 @@ impl MyHealer {
             let mut stats_stream = self.docker.stats(&container_id, None);
             if let Some(Ok(stat)) = stats_stream.next().await {
                 if stat.read.is_empty() {
-                    self.docker.remove_container(&container_id, Some(RemoveContainerOptions {
-                        force: true,
-                        ..Default::default()
-                    })).await.unwrap();
+                    if let Err(e) = self.docker.restart_container(&container_id, None).await {
+                        eprintln!("Error removing container: {}. Proceeding to restart & recreate.", e);
 
-                    if let Err(e) = self.docker.create_container(Some(self.create_options.clone()), self.container_config.clone()).await {
-                        eprintln!("Error creating container: {}", e);                   
+                        // Delete & re-reate container if restarting fails.
+                        self.docker.remove_container(&container_id, Some(RemoveContainerOptions {
+                            force: true,
+                            ..Default::default()
+                        })).await.unwrap();
+
+                        if let Err(e) = self.docker.create_container(Some(self.create_options.clone()), self.container_config.clone()).await {
+                            eprintln!("Error creating container: {}", e);
+                        } else {
+                            let healing_report = &mut *self.healing_report.lock().await;
+
+                            let system_time = SystemTime::now();
+                            let datetime: DateTime<Utc> = system_time.into();
+                            let timestamp_str = datetime.to_rfc3339();
+
+                            healing_report.push(HealingReport {
+                                container_id: container_id.clone(),
+                                timestamp: timestamp_str,
+                                event: "Container was re-created".to_string(),
+                            });
+
+                            self.container_healed_count.inc();
+                        }
                     } else {
                         let healing_report = &mut *self.healing_report.lock().await;
 
                         let system_time = SystemTime::now();
-                        let datetime: DateTime<Utc> = system_time.into(); // Converts SystemTime to DateTime
+                        let datetime: DateTime<Utc> = system_time.into();
                         let timestamp_str = datetime.to_rfc3339();
 
                         healing_report.push(HealingReport {
                             container_id: container_id.clone(),
                             timestamp: timestamp_str,
-                            event: "Container was healed".to_string(),
+                            event: "Container was restarted".to_string(),
                         });
+
+                        self.container_healed_count.inc();
                     }
                 }
             }

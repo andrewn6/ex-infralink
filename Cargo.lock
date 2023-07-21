@@ -5164,6 +5164,7 @@ dependencies = [
  "etherparse",
  "futures-util",
  "podman-api",
+ "prometheus",
  "prost",
  "reqwest",
  "time 0.3.22",

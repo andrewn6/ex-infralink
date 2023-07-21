@@ -1,5 +1,7 @@
 use tokio::sync::Mutex;
 use std::sync::Arc;
+use std::collections::HashMap;
+
 use tonic::transport::Server;
 use tonic::{Request, Response, Status};
 
@@ -110,6 +112,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 		healing: Arc::new(Mutex::new(false)),
 		healing_report: Arc::new(Mutex::new(Vec::new())),
 		container_healed_count: Counter::new("container_healed_count", "Number of containers healed").unwrap(),
+		heal_attempts: Arc::new(Mutex::new(HashMap::<String, u32>::new())),
 	};
 
 	let reflection_service = tonic_reflection::server::Builder::configure()

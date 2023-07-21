@@ -5,6 +5,7 @@ mod healer {
 use prometheus::{Opts, Registry, Counter, Encoder, TextEncoder};
 use std::time::{Duration, SystemTime};
 use std::sync::Arc;
+use std::collections::HashMap;
 
 use futures_util::StreamExt;
 use tonic::{Request, Response, Status};
@@ -38,6 +39,7 @@ pub struct MyHealer {
     pub healing: Arc<Mutex<bool>>,
     pub healing_report: Arc<Mutex<Vec<HealingReport>>>,
     pub container_healed_count: Counter,
+    pub heal_attempts: Arc<Mutex<HashMap<String, u32>>>,
 }
 
 impl MyHealer {
@@ -53,6 +55,7 @@ impl MyHealer {
             healing: Arc::new(Mutex::new(false)),
             healing_report: Arc::new(Mutex::new(Vec::new())),
             container_healed_count,
+            heal_attempts: Arc::new(Mutex::new(HashMap::new())),
         })
     }
 
@@ -70,8 +73,16 @@ impl MyHealer {
                     for container in containers {
                         if let Some(container_id) = &container.id {
                             let mut stats_stream = self.docker.stats(container_id, None);
-            
                             if let Some(Ok(stat)) = stats_stream.next().await {
+                                let mut heal_attempts = self.heal_attempts.lock().await;
+
+                                let counter = heal_attempts.entry(container_id.clone()).or_insert(0);
+                                
+                                // If heal attempts hit the threshold of 3, skip healing for the container
+                                if *counter >= 0 {
+                                    continue;
+                                }
+
                                 if stat.read.is_empty() {
                                     self.docker.remove_container(container_id, Some(RemoveContainerOptions {
                                         force: true,
@@ -95,6 +106,8 @@ impl MyHealer {
 
                                         self.container_healed_count.inc();
                                     }
+
+                                    *counter += 1;
                                 }
                             }
                         }

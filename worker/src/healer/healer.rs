@@ -79,7 +79,7 @@ impl MyHealer {
                                 let counter = heal_attempts.entry(container_id.clone()).or_insert(0);
                                 
                                 // If heal attempts hit the threshold of 3, skip healing for the container
-                                if *counter >= 0 {
+                                if *counter >= 3 {
                                     continue;
                                 }
 

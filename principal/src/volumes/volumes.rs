@@ -8,6 +8,7 @@ use dotenv_codegen::dotenv;
 const VULTR_API_KEY: &str = dotenv!("VULTR_API_KEY");
 const HETZNER_API_KEY: &str = dotenv!("HETZNER_API_KEY");
 
+#[derive(Debug, Clone)]
 pub struct VolumeManager {
     client: reqwest::Client,
 }
@@ -56,8 +57,9 @@ struct VultrBlockResponse {
     size_gb: i32,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct VultrBlock {
+    #[serde(skip)]
     id: String,
     date_created: String,
     size_gb: i32,
@@ -106,7 +108,7 @@ impl HetznerVolumeAttachmentConfig {
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct HetznerVolume {
     id: i32,
     name: String,

@@ -26,13 +26,12 @@ pub struct Manager {
     rules: Vec<Rule>,
     pool: PgPool,
     vultr_key: String,
-    oracle_key: String,
     hetzner_key: String,
 }
 
 pub enum AnyInstance {
-    Vultr(Instance),
-    Hetzner(HetznerInstance),
+    Vultr(Box<Instance>),
+    Hetzner(Box<HetznerInstance>),
 }
 
 impl Manager {
@@ -43,7 +42,6 @@ impl Manager {
 
         let vultr_key = dotenv!("VULTR_API_KEY").to_string();
         let hetzner_key = dotenv!("HETZNER_API_KEY").to_string();
-        let oracle_key = dotenv!("ORACLE_API_KEY").to_string();
 
         Ok(Self {
             client: Client::new(),
@@ -51,7 +49,6 @@ impl Manager {
             pool,
             vultr_key,
             hetzner_key,
-            oracle_key
         })
     }
 
@@ -91,10 +88,10 @@ impl Manager {
                 let mut instances: Vec<AnyInstance>  = Vec::new();
 
                 for instance in vultr_instances {
-                    instances.push(AnyInstance::Vultr(instance));
+                    instances.push(AnyInstance::Vultr(Box::new(instance)));
                 }
                 for instance in hetzner_instances {
-                    instances.push(AnyInstance::Hetzner(instance));
+                    instances.push(AnyInstance::Hetzner(Box::new(instance)));
                 }
 
                 Ok(instances)
@@ -114,6 +111,7 @@ impl Manager {
         Ok(resp)
     }
 
+    /* 
     async fn get_oracle_instances(&self) -> Result<Vec<Instance>, reqwest::Error> {
         let resp = self.client.get("api.oracle.com/servers") // TODO: implement actual oracle route.
             .bearer_auth(&self.oracle_key)
@@ -124,6 +122,8 @@ impl Manager {
 
         Ok(resp)
     }
+    */
+    
     async fn get_hetzner_instances(&self) -> Result<Vec<HetznerInstance>, reqwest::Error> {
         let resp = self.client.get("https://api.hetzner.cloud/v1/servers")
             .bearer_auth(&self.hetzner_key)

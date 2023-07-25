@@ -1,7 +1,6 @@
 pub mod providers;
 pub mod shared_config;
 use std::convert::Infallible;
-use std::net::SocketAddr;
 
 use dotenv::dotenv;
 

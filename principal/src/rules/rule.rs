@@ -1,6 +1,8 @@
-#[derive(Debug, Clone)]
+use sqlx::FromRow;
+
+#[derive(Debug, Clone, FromRow)]
 pub struct Rule {
     pub provider: String,
-    pub regions: Vec<String>,
+    pub region: Vec<String>,
     pub instance_count: i32,
 }

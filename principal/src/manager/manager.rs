@@ -56,8 +56,8 @@ impl Manager {
     }
 
     async fn load_rules(pool: &sqlx::Pool<sqlx::Postgres>) -> Result<Vec<Rule>, sqlx::Error> {
-        let rules = vec![];
-        let recs = sqlx::query(
+        let mut rules = vec![];
+        let recs = sqlx::query_as::<_, (String, String, i32)>(
             r#"
             SELECT provider, region, instance_count
             FROM Providers
@@ -65,12 +65,14 @@ impl Manager {
         )
         .fetch_all(pool)
         .await?;
+    
+        
 
     for rec in recs {
         let rule = Rule {
-            provider: rec.provider,
-            regions: vec![rec.region],
-            instance_count: rec.instance_count,
+            provider: rec.0,
+            region: vec![rec.1],
+            instance_count: rec.2,
         };
             rules.push(rule);
         }
@@ -141,16 +143,16 @@ impl Manager {
                     for rule in &self.rules {
                         match rule.provider.as_str() {
                             "vultr" => {
-                                for _region_str in &rule.regions {
-                                    let region = VultrRegions::from(VultrRegions::NorthAmerica(NewJersey));
+                                for _region_str in &rule.region {
+                                    let region = VultrRegions::NorthAmerica(NewJersey);
                                     let count = instance_count.get(region.to_string().as_str()).unwrap_or(&0);
                                     match count {
-                                        c if c < &&rule.instance_count => {
+                                        c if c < &rule.instance_count => {
                                             println!("Need to start {} instances in region {}", rule.instance_count - c, region);
                                             let instance = InstanceBuilder::new()
                                                 .region(region.clone())
                                                 .build(&mut shared_config).await;
-                                            instance.start(&mut shared_config);
+                                            instance.start(&mut shared_config).await;                            
                                         },
                                         c if c > &rule.instance_count => {
                                             println!("Need to stop {} instances in region {}", c - rule.instance_count, region);
@@ -171,11 +173,11 @@ impl Manager {
                                 }
                             }
                             "hetzner" => {
-                                for _region_str in &rule.regions {
+                                for _region_str in &rule.region {
                                     let region = HetznerRegions::Helsinki;
                                     let count = instance_count.get(region.to_string().as_str()).unwrap_or(&0);
                                     match count {
-                                        c if c < &&rule.instance_count => {
+                                        c if c < &rule.instance_count => {
                                             println!("Need to start {} instances in region {:?}", rule.instance_count - c, region);
                                             let instance = HetznerInstanceBuilder::new()
                                                 .region(region.clone())

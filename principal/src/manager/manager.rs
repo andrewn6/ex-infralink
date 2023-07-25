@@ -4,7 +4,7 @@ use reqwest::Client;
 use sqlx::postgres::PgPoolOptions;
 use sqlx::postgres::PgPool;
 use dotenv_codegen::dotenv;
-use crate::rules::rules::Rule;
+use crate::rules::rule::Rule;
 use crate::shared_config::SharedConfig;
 
 // Vultr provider
@@ -68,12 +68,9 @@ impl Manager {
 
     for rec in recs {
         let rule = Rule {
-            provider: todo!(),
-            regions: todo!(),
-            instance_count: todo!(),
-           // provider: rec.provider,
-            //regions: vec![rec.region],
-            //instance_count: rec.instance_count,
+            provider: rec.provider,
+            regions: vec![rec.region],
+            instance_count: rec.instance_count,
         };
             rules.push(rule);
         }

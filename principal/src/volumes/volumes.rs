@@ -14,7 +14,7 @@ pub struct VolumeManager {
 }
 
 /* Vultr Structs/Impls */
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct VultrVolumeConfig {
     region: String,
     size_gb: i32,
@@ -22,7 +22,7 @@ pub struct VultrVolumeConfig {
     block_type: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct VultrVolumeAttachmentConfig {
     instance_id: String,
     live: bool,
@@ -37,7 +37,7 @@ impl VultrVolumeAttachmentConfig {
     }
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct VultrVolumeDetachConfig {
     live: bool,
 }
@@ -71,7 +71,7 @@ struct VultrBlocksResponse {
 }
 
 /* Hetzner Structs/Impls */
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct HetznerVolumeConfig {
     automount: bool,
     format: String,
@@ -81,7 +81,7 @@ pub struct HetznerVolumeConfig {
     size: i32,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct HetznerVolumeResizeConfig {
     size: i32,
 }
@@ -93,7 +93,7 @@ impl HetznerVolumeResizeConfig {
         }
     }
 }
-#[derive(Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct HetznerVolumeAttachmentConfig {
     automount: bool,
     server: i32,
@@ -126,11 +126,13 @@ struct HetznerVolumesResponse {
     volumes: Vec<HetznerVolume>,
 }
 
+#[derive(Deserialize, Serialize)]
 enum Provider {
     Hetzner,
     Vultr,
 }
 
+#[derive(Serialize)]
 pub struct Volume {
     id: String,
     provider: Provider,
@@ -295,7 +297,7 @@ impl VolumeManager {
         })
     }
 
-    pub async fn attach_volume_on_hetzner(&self, volume_id: &str, config: HetznerVolumeConfig) -> Result<(), Box<dyn Error>> {
+    pub async fn attach_volume_on_hetzner(&self, volume_id: &str, config: HetznerVolumeAttachmentConfig) -> Result<HetznerVolume, Box<dyn std::error::Error>> {
         let response = self.client.post(&format!("https://api.hetzner.cloud/v1/volumes/{}/actions/attach", volume_id))
             .headers(self.hetzner_headers())
             .json(&config)
@@ -306,7 +308,9 @@ impl VolumeManager {
             return Err(format!("Failed to attach volume: {}: {}", volume_id, response.text().await?).into());
         }
 
-        Ok(())
+        let volume_response: HetznerVolumeResponse = response.json().await?;
+
+        Ok(volume_response.volume)
     }
 
     pub async fn resize_volume_on_hetzner(&self, volume_id: &str, config: HetznerVolumeResizeConfig) -> Result<(), Box<dyn Error>> {

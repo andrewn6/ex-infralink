@@ -1,4 +1,6 @@
 use std::collections::HashMap;
+use std::error::Error;
+use std::fmt;
 
 use reqwest::Client;
 use sqlx::postgres::PgPoolOptions;
@@ -17,6 +19,37 @@ use crate::providers::hetzner::models::request::instance::InstanceBuilder as Het
 use crate::providers::hetzner::models::request::instance::Instance as HetznerInstance;
 use crate::providers::hetzner::models::request::region::Region as HetznerRegions;
 use crate::providers::vultr::models::request::region::NorthAmerica::NewJersey;
+
+#[derive(Debug)]
+pub enum ManagerError {
+    DatabaseError(sqlx::Error),
+    ReqwestError(reqwest::Error),
+    ProviderError(String),
+}
+
+impl fmt::Display for ManagerError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            ManagerError::DatabaseError(e) => write!(f, "Database error: {}", e),
+            ManagerError::ReqwestError(e) => write!(f, "Reqwest error: {}", e),
+            ManagerError::ProviderError(e) => write!(f, "Provider error: {}", e),
+        }
+    }
+}
+
+impl Error for ManagerError {}
+
+impl From<sqlx::Error> for ManagerError {
+    fn from(e: sqlx::Error) -> Self {
+        ManagerError::DatabaseError(e)
+    }
+}
+
+impl From<reqwest::Error> for ManagerError {
+    fn from(err: reqwest::Error) -> ManagerError {
+        ManagerError::ReqwestError(err)
+    }
+}
 
 pub struct Manager {
     client: Client,
@@ -74,7 +107,7 @@ impl Manager {
         Ok(rules)
     }
 
-    pub async fn get_instances(&self) -> Result<Vec<AnyInstance>, reqwest::Error> {
+    pub async fn get_instances(&self) -> Result<Vec<AnyInstance>, ManagerError> {
         let vultr_future = self.get_vultr_instances();
         let hetzner_future = self.get_hetzner_instances();
 
@@ -93,7 +126,7 @@ impl Manager {
 
                 Ok(instances)
             }
-            Err(e) => Err(e),
+            Err(e) => Err(ManagerError::from(e))
         }
     }
 

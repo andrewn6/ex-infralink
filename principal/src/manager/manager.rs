@@ -18,9 +18,6 @@ use crate::providers::hetzner::models::request::instance::Instance as HetznerIns
 use crate::providers::hetzner::models::request::region::Region as HetznerRegions;
 use crate::providers::vultr::models::request::region::NorthAmerica::NewJersey;
 
-const VULTR_API_KEY: &str = dotenv!("VULTR_API_KEY");
-const HETZNER_API_KEY: &str = dotenv!("HETZNER_API_KEY");
-
 pub struct Manager {
     client: Client,
     rules: Vec<Rule>,

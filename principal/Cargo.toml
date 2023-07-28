@@ -13,7 +13,7 @@ serde = { version = "1.0.160", features = ["derive"] }
 reqwest = { version = "0.11.16", features = ["rustls-tls", "json", "blocking"] }
 dotenv_codegen = "0.15.0"
 serde_yaml = "0.9.21"
-hyper = { version = "0.14.27", features = ["full"] }
+hyper = { version = "0.14", features = ["full"] }
 serde_json = "1.0.93"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 lapin = "2.1.1"

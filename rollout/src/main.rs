@@ -1,43 +1,35 @@
+mod rollout {
+	include!("../rollout.rs");
+}
+
+use rollout::{BlueGreen, BlueGreenRequest, DeployResponse};
+
 use tonic::{transport::Server, Request, Response, Status};
-
-pub mod strategies;
-
-#[derive(Debug)]
-pub struct HelloRequest {
-    pub name: String,
-}
+use std::net::SocketAddr;
+use bollard::Docker;
+use bollard::models::{ContainerCreateResponse, HostConfig, ContainerListOptions};
 
 #[derive(Debug)]
-pub struct HelloResponse {
-    pub message: String,
+pub struct BlueGreenService {
+	docker: Docker,
 }
 
 #[tonic::async_trait]
-pub trait HelloWorld {
-    async fn say_hello(&self, request: Request<HelloRequest>) -> Result<Response<HelloResponse>, Status>;
-}
-
-pub struct HelloWorldService;
-
-#[tonic::async_trait]
-impl HelloWorld for HelloWorldService {
-    async fn say_hello(&self, request: Request<HelloRequest>) -> Result<Response<HelloResponse>, Status> {
-        let name = request.into_inner().name;
-        let response = format!("Hello, {}!", name);
-
-        Ok(Response::new(HelloResponse { message: response }))
-    }
+impl BlueGreen for BlueGreenRollout {
+	async fn deploy(&self, request: Request<BlueGreenRequest>) -> Result<Response<DeployResponse>, Status> {
+		todo!()
+	}
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "127.0.0.1:50051".parse().unwrap();
-    let hello_world_service = HelloWorldService;
+	let addr = "127.0.0.1:50052".parse().unwrap();
+	let blue_green_service = BlueGreenRollout::default();
 
-    println!("gRPC server listening on {}", addr);
+	println("Rollout server listening on {}", addr);
 
-    Server::builder()
-        .add_service(HelloWorldService::new(hello_world_service))
+	Server::builder()
+        .add_service(BlueGreen::new(blue_green_service))
         .serve(addr)
         .await?;
 

@@ -51,6 +51,7 @@ impl From<reqwest::Error> for ManagerError {
     }
 }
 
+#[derive(Debug)]
 pub struct Manager {
     client: Client,
     rules: Vec<Rule>,
@@ -59,6 +60,7 @@ pub struct Manager {
     hetzner_key: String,
 }
 
+#[derive(Debug)]
 pub enum AnyInstance {
     Vultr(Box<Instance>),
     Hetzner(Box<HetznerInstance>),

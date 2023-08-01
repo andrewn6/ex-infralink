@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE, AUTHORIZATION};
 use serde::{Serialize, Deserialize};
@@ -10,7 +11,7 @@ const HETZNER_API_KEY: &str = dotenv!("HETZNER_API_KEY");
 
 #[derive(Debug, Clone)]
 pub struct VolumeManager {
-    client: reqwest::Client,
+    client: Arc<reqwest::Client>,
 }
 
 /* Vultr Structs/Impls */
@@ -141,7 +142,7 @@ pub struct Volume {
 impl VolumeManager {
     pub fn volume() -> Self {
         VolumeManager {
-            client: reqwest::Client::new(),
+            client: Arc::new(reqwest::Client::new()),
         }
     }
 

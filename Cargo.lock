@@ -3482,6 +3482,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "rollout"
+version = "0.1.0"
+dependencies = [
+ "bollard",
+ "prost",
+ "tokio",
+ "tonic",
+ "tonic-build",
+]
+
+[[package]]
 name = "runner"
 version = "0.1.0"
 dependencies = [

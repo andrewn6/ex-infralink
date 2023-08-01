@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package rollout;
+
+message RolloutStrategy {
+  enum StrategyType {
+    BLUE_GREEN = 0;
+    LINEAR = 1;
+    EXPONENTIAL = 2;
+    CUSTOM = 3;
+  }
+
+  StrategyType type = 1;
+
+  oneof rollout {
+    BlueGreenStrategy blue_green = 2;
+    LinearStrategy linear = 3;
+    ExponentialStrategy exponential = 4;
+  }
+}
+
+message BlueGreenStrategy {
+  bool blue_green_field = 1;
+}
+
+message LinearStrategy {
+  int32 steps = 1;
+  int32 interval_seconds = 2;
+}
+
+message ExponentialStrategy {
+  int32 initial_percentage = 1;
+  int32 steps = 2;
+  int32 interval_seconds = 3;
+}
+
+service RolloutStrategyService {
+  rpc CreateStrategy(CreateStrategyRequest) returns (CreateStrategyResponse);
+
+  rpc GetStrategy(GetStrategyRequest) returns (GetStrategyResponse);
+
+  rpc ListStrategies(ListStrategiesRequest) returns (ListStrategiesResponse);
+
+  rpc UpdateStrategy(UpdateStrategyRequest) returns (UpdateStrategyResponse);
+
+  rpc DeleteStrategy(DeleteStrategyRequest) returns (DeleteStrategyResponse);
+}
+
+message CreateStrategyRequest {
+  RolloutStrategy strategy = 1;
+}
+
+message CreateStrategyResponse {}
+
+message GetStrategyRequest {
+  string strategy_id = 1;
+}
+
+message GetStrategyResponse {
+  RolloutStrategy strategy = 1;
+}
+
+message ListStrategiesRequest {}
+
+message ListStrategiesResponse {
+  repeated RolloutStrategy strategies = 1;
+}
+
+message UpdateStrategyRequest {
+  string strategy_id = 1;
+  RolloutStrategy strategy = 2;
+}
+
+message UpdateStrategyResponse {}
+
+message DeleteStrategyRequest {
+  string strategy_id = 1;
+}
+
+message DeleteStrategyResponse {}

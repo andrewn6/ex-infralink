@@ -8,7 +8,8 @@ members = [
   "services/registry",  # Pushes/Pulls images to our registry
   "services/builder" ,   # Builds via nixpacks
   "services/runner", # Runner service
-  "services/scaler" # Scaler service
+  "services/scaler", # Scaler service
+  "rollout", # Roll out service
 ]
 
 [profile.release]

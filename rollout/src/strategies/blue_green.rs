@@ -15,6 +15,8 @@ use rollout::{RolloutStrategy, BlueGreenStrategy, StrategyType};
 use rollout::rollout_strategy::Rollout;
 use surf::{Client, http::Url};
 
+use self::rollout::rollout_strategy;
+
 const CONTAINER_PREFIX: &str = "my_app_version_";
 const HEALTH_CHECK_PATH: &str = "/health";
 const OLD_APP_ADDR: &str = "http://127.0.0.1:7000"; // Replace with the actual address of the old version
@@ -55,7 +57,7 @@ impl LoadBalancer {
 }
 
 #[tonic::async_trait]
-impl BlueGreen for BlueGreenService {
+impl rollout::BlueGreen for BlueGreenService {
     async fn deploy(
         &self,
         request: Request<BlueGreenRequest>,
@@ -68,8 +70,9 @@ impl BlueGreen for BlueGreenService {
                         Rollout::BlueGreen(blue_green) => {
                             let new_image = blue_green.blue_green_field;
                             let version = if new_image { "new" } else { "old" };
-                            self.reverse_proxy_to_version(version).await?;
-                            return Ok(Response::new(DeployResponse { success: true }));
+                            let mut rollout_strategy = rollout::BlueGreenRollout::new("old".to_string(), "new".to_string()).await?;
+                            rollout_strategy.reverse_proxy_to_version(version).await?;
+                            return Ok(Response::new(rollout::DeployResponse { success: true }));
                         },
                         _ => return Err(Status::invalid_argument("Invalid blue-green roll out strategy")),
                     }

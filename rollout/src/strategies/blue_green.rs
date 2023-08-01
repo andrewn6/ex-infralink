@@ -3,13 +3,15 @@ mod rollout {
 }
 
 use std::net::SocketAddr;
+use std::collections::HashMap;
+
 use surf::StatusCode;
 use tonic::{Request, Response, Status};
 
 use bollard::Docker;
 use bollard::models::{ContainerCreateOptions, HostConfig, ContainerListOptions};
 
-use rollout::{RolloutStrategy, StrategyType};
+use rollout::{RolloutStrategy, BlueGreenStrategy, StrategyType};
 use rollout::rollout_strategy::Rollout;
 use surf::{Client, http::Url};
 
@@ -18,16 +20,37 @@ const HEALTH_CHECK_PATH: &str = "/health";
 const OLD_APP_ADDR: &str = "http://127.0.0.1:7000"; // Replace with the actual address of the old version
 const NEW_APP_ADDR: &str = "http://127.0.0.1:7001";
 
-#[derive(Default)]
-pub struct BlueGreenRollout {
-    docker: Docker,
+
+pub struct LoadBalancer {
+    current_version: String,
+    old_version: String,
+    new_version: String,
 }
 
+pub struct BlueGreenRollout {
+    docker: Docker,
+    load_balancer: LoadBalancer,
+    containers: HashMap<String, String>,
+}
 
-impl BlueGreenRollout {
-    pub async fn new() -> Result<Self, Status> {
-        let docker = Docker::connect_with_local_defaults().map_err(|_| Status::unavailable("Failed to connect to Docker"))?;
-        Ok(Self { docker })
+// Very basic this will need to be improved and expanded eventually.. works for now though.
+impl LoadBalancer {
+    pub fn new(old_version: String, new_version: String) -> Self {
+        Self {
+            current_version: old_version.clone(),
+            old_version,
+            new_version,
+        }
+    }
+
+    pub fn get_next_version(&mut self) -> String {
+        if self.current_version == self.old_version {
+            self.current_version = self.new_version.clone();
+            &self.new_version
+        } else {
+            self.current_version = self.old_version.clone();
+            &self.old_version
+        }
     }
 }
 
@@ -63,6 +86,15 @@ impl BlueGreen for BlueGreenService {
 }
 
 impl BlueGreenRollout {
+    pub async fn new() -> Result<Self, Status> {
+        let docker = Docker::connect_with_local_defaults().map_err(|_| Status::unavailable("Failed to connect to Docker"))?;
+        Ok(Self {
+             docker,
+             load_balancer: LoadBalancer::new(old_version, new_version),
+             containers: HashMap::new(),
+        })
+    }
+
     async fn reverse_proxy_to_version(&self, version: &str) -> Result<(), Status> {
         let version_addr = self.get_version_addr(version);
 
@@ -115,6 +147,36 @@ impl BlueGreenRollout {
 
         self.docker.create_container(Some(create_options)).await.map_err(|_| Status::unavailable("Failed to create container"))?;
         self.docker.start_container(&container_name, None::<String>).await.map_err(|_| Status::unavailable("Failed to start container"))?;
+
+        Ok(())
+    }
+
+    async fn cleanup_containers(&mut self, keep_version: &str) -> Result<(), Status> {
+        let options = ContainerListOptions::builder().all(true).build();
+        let containers = self.docker.list_containers(Some(options)).await.map_err(|_| Status::unavailable("Failed to list containers"))?;
+
+        for container in containers {
+            if let Some(names) = containerr.names {
+                for name in names {
+                    if let Some(container_id) = self.containers.remove(&name[1..]) {
+                        let options = bollard::container::RemoveContainerOptions {
+                            force: true,
+                            ..Default::default()
+                        };
+                        if let Err(_) = self.docker.remove_container(&container_id, Some(options)).await {
+                            return Err(Status::unavailable("Failed to remove container"));
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn rollback_to_version(&mut self, version: &str) -> Result<(), Status> {
+        self.cleanup_containers(version).await?;
+        self.load_balancer = LoadBalancer::new(version.to_string(), self.load_balancer.new_version.clone());
 
         Ok(())
     }

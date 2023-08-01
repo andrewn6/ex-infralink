@@ -9,6 +9,8 @@ use std::net::SocketAddr;
 use bollard::Docker;
 use bollard::models::{ContainerCreateResponse, HostConfig, ContainerListOptions};
 
+pub mod strategies;
+
 #[derive(Debug)]
 pub struct BlueGreenService {
 	docker: Docker,

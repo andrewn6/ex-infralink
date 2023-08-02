@@ -1,3 +1,4 @@
+/* 
 mod rollout {
     include!("../rollout.rs");
 }
@@ -15,7 +16,6 @@ use rollout::{RolloutStrategy, BlueGreenStrategy, StrategyType};
 use rollout::rollout_strategy::Rollout;
 use surf::{Client, http::Url};
 
-use self::rollout::rollout_strategy;
 
 const CONTAINER_PREFIX: &str = "my_app_version_";
 const HEALTH_CHECK_PATH: &str = "/health";
@@ -192,3 +192,4 @@ impl BlueGreenRollout {
         }
     }
 }
+*/

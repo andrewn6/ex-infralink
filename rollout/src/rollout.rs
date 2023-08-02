@@ -135,6 +135,18 @@ pub struct DeleteStrategyRequest {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct DeleteStrategyResponse {}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StartRolloutRequest {
+    #[prost(message, optional, tag = "1")]
+    pub strategy: ::core::option::Option<RolloutStrategy>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct StartRolloutResponse {
+    #[prost(string, tag = "1")]
+    pub message: ::prost::alloc::string::String,
+}
 /// Generated client implementations.
 pub mod rollout_strategy_service_client {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
@@ -301,6 +313,25 @@ pub mod rollout_strategy_service_client {
             );
             self.inner.unary(request.into_request(), path, codec).await
         }
+        pub async fn start_rollout(
+            &mut self,
+            request: impl tonic::IntoRequest<super::StartRolloutRequest>,
+        ) -> Result<tonic::Response<super::StartRolloutResponse>, tonic::Status> {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/rollout.RolloutStrategyService/StartRollout",
+            );
+            self.inner.unary(request.into_request(), path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -330,6 +361,10 @@ pub mod rollout_strategy_service_server {
             &self,
             request: tonic::Request<super::DeleteStrategyRequest>,
         ) -> Result<tonic::Response<super::DeleteStrategyResponse>, tonic::Status>;
+        async fn start_rollout(
+            &self,
+            request: tonic::Request<super::StartRolloutRequest>,
+        ) -> Result<tonic::Response<super::StartRolloutResponse>, tonic::Status>;
     }
     #[derive(Debug)]
     pub struct RolloutStrategyServiceServer<T: RolloutStrategyService> {
@@ -580,6 +615,46 @@ pub mod rollout_strategy_service_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = DeleteStrategySvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/rollout.RolloutStrategyService/StartRollout" => {
+                    #[allow(non_camel_case_types)]
+                    struct StartRolloutSvc<T: RolloutStrategyService>(pub Arc<T>);
+                    impl<
+                        T: RolloutStrategyService,
+                    > tonic::server::UnaryService<super::StartRolloutRequest>
+                    for StartRolloutSvc<T> {
+                        type Response = super::StartRolloutResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::StartRolloutRequest>,
+                        ) -> Self::Future {
+                            let inner = self.0.clone();
+                            let fut = async move {
+                                (*inner).start_rollout(request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = StartRolloutSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

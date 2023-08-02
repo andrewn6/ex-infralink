@@ -36,14 +36,11 @@ message ExponentialStrategy {
 
 service RolloutStrategyService {
   rpc CreateStrategy(CreateStrategyRequest) returns (CreateStrategyResponse);
-
   rpc GetStrategy(GetStrategyRequest) returns (GetStrategyResponse);
-
   rpc ListStrategies(ListStrategiesRequest) returns (ListStrategiesResponse);
-
   rpc UpdateStrategy(UpdateStrategyRequest) returns (UpdateStrategyResponse);
-
   rpc DeleteStrategy(DeleteStrategyRequest) returns (DeleteStrategyResponse);
+  rpc StartRollout(StartRolloutRequest) returns (StartRolloutResponse);  
 }
 
 message CreateStrategyRequest {
@@ -78,3 +75,11 @@ message DeleteStrategyRequest {
 }
 
 message DeleteStrategyResponse {}
+
+message StartRolloutRequest {
+    RolloutStrategy strategy = 1;
+}
+
+message StartRolloutResponse {
+    string message = 1;
+}

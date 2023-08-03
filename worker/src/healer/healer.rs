@@ -60,59 +60,74 @@ impl MyHealer {
     }
 
     pub async fn start(self) {
-        let mut healing = self.healing.lock().await;
-        *healing = true;
+       let mut healing = self.healing.lock().await;
+       *healing = true;
 
-        let mut backoff = Duration::from_secs(1);
-        while *self.healing.lock().await {
-            match self.docker.list_containers(Some(ListContainersOptions::<String>{
+       let mut backoff = Duration::from_secs(1);
+       while *self.healing.lock().await {
+            match self.docker.list_containers(Some(ListContainersOptions::<String> {
                 all: true,
                 ..Default::default()
             })).await {
                 Ok(containers) => {
-                    for container in containers {
+                    for container in &containers {
                         if let Some(container_id) = &container.id {
-                            let mut stats_stream = self.docker.stats(container_id, None);
-                            if let Some(Ok(stat)) = stats_stream.next().await {
-                                let mut heal_attempts = self.heal_attempts.lock().await;
+                            Ok(inspect_data) => {
+                                if let Some(state) = &inspect_data.state {
+                                    if let Some(status) = &state.status {
+                                        match status.as_str() {
+                                            "unhealthy" => {
+                                                if let Some(health) = &inspect_data.state.health {
+                                                    if health.status == "unhealthy" {
+                                                        if let Err(e) = self.docker.restart_container(container_id, None).await {
+                                                            eprintln!("quarantine: Error removing container: {}. Proceeding to restart & recreate.", e);
 
-                                let counter = heal_attempts.entry(container_id.clone()).or_insert(0);
-                                
-                                // If heal attempts hit the threshold of 3, skip healing for the container
-                                if *counter >= 3 {
-                                    continue;
-                                }
+                                                            self.docker.restart_container(container_id, Some(RemoveContainerOptions {
+                                                                force: true,
+                                                                ..Default::default()
+                                                            })).await.unwrap();
 
-                                if stat.read.is_empty() {
-                                    self.docker.remove_container(container_id, Some(RemoveContainerOptions {
-                                        force: true,
-                                        ..Default::default()
-                                    })).await.unwrap();
-    
-                                    if let Err(e) = self.docker.create_container(Some(self.create_options.clone()), self.container_config.clone()).await {
-                                        eprintln!("Error creating container: {}", e);
-                                    } else {
-                                        let system_time = SystemTime::now();
-                                        let datetime: DateTime<Utc> = system_time.into(); 
-                                        let timestamp_str = datetime.to_rfc3339();
+                                                            if let Err(e) = self.docker.create_container(Some(self.create_options()), self.container_config.clone()).await {
+                                                                eprintln!("Error creating container: {}", e);
+                                                            } else {
+                                                                let healing_report = &mut *self.healing_report.lock().await;
 
-                                        let healing_report = &mut *self.healing_report.lock().await;
-                                        
-                                        healing_report.push(HealingReport {
-                                            container_id: container_id.clone(),
-                                            timestamp: timestamp_str,
-                                            event: "Container was healed".to_string(),
-                                        });
+                                                                let system_time = SystemTime::now();
+                                                                let datetime: DateTime<Utc> = system_time.into();
+                                                                let timestamp_str = datetime.to_rfc3339();
 
-                                        self.container_healed_count.inc();
+                                                                healing_report.push(HealingReport {
+                                                                    container_id: container_id.clone(),
+                                                                    timestamp: timestamp_str,
+                                                                    event: "Container was re-created".to_string(),
+                                                                });
+
+                                                                self.container_healed_count.inc();
+                                                            }
+                                                        } else {
+                                                            let healing_report = &mut *self.healing_report.lock().await;
+
+                                                            let system_time = SystemTime::now();
+                                                            let datetime: DateTime<Utc> = system_time.into();
+                                                            let timestamp_str = datetime.to_rfc3339();
+
+                                                            healing_report.push(HealingReport {
+                                                                container_id: container_id.clone(),
+                                                                timestamp: timestamp_str,
+                                                                event: "Container was restarted due to health check failuire" .to_string(),
+                                                            });
+
+                                                            self.container_healed_count.inc();
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
-
-                                    *counter += 1;
                                 }
                             }
                         }
                     }
-    
                     backoff = Duration::from_secs(1);
                 },
                 Err(e) => {
@@ -120,9 +135,10 @@ impl MyHealer {
                     backoff = std::cmp::min(backoff * 2, Duration::from_secs(60));
                 }
             }
-    
+
             time::sleep(backoff).await;
-        }
+       }
+                                     
     }
     
 

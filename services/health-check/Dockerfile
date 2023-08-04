@@ -12,7 +12,7 @@ FROM debian:bullseye-slim
 
 WORKDIR /runner
 
-EXPOSE 50052
+EXPOSE 50053
 
 COPY --from=builder /usr/src/health-check/target/release/health-check health-check
 

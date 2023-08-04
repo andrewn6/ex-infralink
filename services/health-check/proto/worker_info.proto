@@ -9,11 +9,45 @@ message WorkerInfo {
 
 message Network {
   string primary_ipv4 = 1;
-  optional string primary_ipv6 = 2;
+  string primary_ipv6 = 2;
+}
+
+
+message HealthCheck {
+  string name = 1;
+  Type type = 2;
+  string endpoint = 3;
+  uint32 frequency_seconds = 4;
+  uint32 timeout_seconds = 5;
+
+  HTTPMethod http_method = 6;
+  string exepcted_response_body = 7;
+}
+
+enum Type {
+  UNKNOWN = 0;
+  PING = 1;
+  HTTP = 2;
+}
+
+
+enum HTTPMethod {
+  GET = 0;   // Default
+  POST = 1;
+  PUT = 2;
+  DELETE = 3;
 }
 
 message ScheduleHealthCheckResponse {
   string message = 1;
+  repeated HealthCheckStatus health_check_statuses = 2;  // Results of health checks if you want immediate feedback
+}
+
+
+message HealthCheckStatus {
+  string name = 1;   // Name of the health check
+  bool is_healthy = 2;  // Whether the check passed or not
+  string message = 3;  // Any additional message or reason for failure
 }
 
 service HealthCheckService {

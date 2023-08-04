@@ -81,7 +81,7 @@ pub async fn main() {
 	// )
 	// .await;
 
-	let addr = "0.0.0.0:50052".parse().unwrap();
+	let addr = "0.0.0.0:50053".parse().unwrap();
 	let health_check_server =
 		health_check_service_server::HealthCheckServiceServer::new(HealthCheckServer);
 

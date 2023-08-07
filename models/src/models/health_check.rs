@@ -1,5 +1,21 @@
 use serde::{Deserialize, Serialize};
 
+// Enum for custom health check types
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub enum CustomCheckType {
+	JsonValueExists {
+		json_path: String,
+		expected_value: serde_json::Value,
+	},
+	ResponseContainersString(String),
+	ResponseStatus(Vec<u16>),
+}
+
+// Enum for health check types
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct CustomHealthCheck {
+	pub check_type: CustomCheckType,
+}
 // Define a HealthCheckConfig struct for holding health check configuration.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct HealthCheck {
@@ -23,6 +39,8 @@ pub struct HealthCheck {
 	pub r#type: HealthCheckType,
 	// Headers to include in the health check request.
 	pub headers: Option<Vec<Header>>,
+	// Custom health checks
+	pub custom_health_check: Option<CustomHealthCheck>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

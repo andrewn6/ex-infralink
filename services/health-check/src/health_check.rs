@@ -1,14 +1,19 @@
 use dotenv_codegen::dotenv;
-use models::models::health_check::{HealthCheck, HealthCheckType, HttpMethod};
+use models::models::health_check::{HealthCheck, HealthCheckType, HttpMethod, CustomCheckType, CustomHealthCheck};
 use models::models::network::Network;
 use redis::aio::Connection;
 use redis::AsyncCommands;
+use sqlx::{PgPool, Error as SqlxError};
+
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Client, Error};
 use serde::{Deserialize, Serialize};
+use serde_json::Value;
+
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 use uuid::Uuid;
@@ -30,6 +35,50 @@ pub struct WorkerInfo {
 	pub network: Network,
 }
 
+pub async fn cockroach_connection() -> Result<PgPool, Error> {
+	let db_url = dotenv!("COCKROACH_DB_URL");
+
+	let pool = PgPool::connect(db_url).await?;
+	Ok(pool)
+}
+
+pub async fn save_health_check_to_db(pool: &PgPool, health_check: HealthCheck) -> Result<(), SqlxError> {
+	sqlx::query!(
+		r#"
+		INSERT INTO health_checks (path, port, method, tls_skip_verification, timeout, interval, grace_period, max_failures, type, headers, custom_health_check)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+		ON CONFLICT (PATH) DO UPDATE
+		SET port = excluded.port, method = excluded.method, tls_skip_verification = excluded.tls_skip_verification, 
+		grace_period = excluded.grace_period, interval = excluded.interval, timeout = excluded.timeout, 
+		max_failures = excluded.max_failures, type = excluded.type, headers = excluded.headers, custom_health_check = excluded.custom_health_check
+		"#,
+		health_check.path,
+        health_check.port,
+        health_check.method.as_deref(),
+        health_check.tls_skip_verification,
+        health_check.grace_period,
+        health_check.interval,
+        health_check.timeout,
+        health_check.max_failures,
+        health_check.r#type,
+        health_check.headers,
+        health_check.custom_health_check.map(|c| serde_json::to_value(c).unwrap()),
+    )
+	.execute(pool)
+	.await?;
+
+	Ok(())
+}
+
+fn deserialize_custom_health_check(custom_health_check: Option<&str>) -> Option<CustomCheckType> {
+	custom_health_check.and_then(|custom_check| {
+		serde_json::from_str(custom_check)
+			.map_err(|err | {
+				tracing::error!("Failed to deserialize custom health check: {}", err);
+			})
+			.ok()
+	})
+}
 // This function creates a health check loop for a given HealthCheckConfig.
 pub async fn schedule_health_checks(
 	connection: Arc<Mutex<Connection>>,
@@ -176,8 +225,14 @@ async fn run_http_health_check(context: &mut HealthCheckContext<'_>) -> Result<(
 		)
 		.await
 		.unwrap();
-
-	// todo: include latency in the health check
+	
+	/* 
+	if let Some(custom_check) = &context.custom_check {
+		if let Err(e) = // {
+			todo!()
+		}
+	}
+	*/
 
 	Ok(())
 }
@@ -191,4 +246,88 @@ pub async fn stop_health_check(
 	} else {
 		println!("No health check found with ID {}", health_check_id);
 	}
+}
+
+
+// Run the JSON value exists custom check
+async fn run_json_value_exists_check(
+	context: &mut HealthCheckContext<'_>,
+	json_path: &str,
+	expected_value: &serde_json::Value,
+) -> Result<(), Error> {
+	let url = construct_url(context.worker, context.config);
+
+	let headers = construct_headers(context.config);
+
+    let client = Client::builder()
+        .timeout(Duration::from_millis(context.config.timeout))
+        .danger_accept_invalid_certs(context.config.tls_skip_verification.unwrap_or(false))
+        .build()
+        .unwrap();
+
+    let response = match context.config.method {
+        Some(HttpMethod::GET) => client.get(&url).headers(headers).send().await?,
+        Some(HttpMethod::POST) => client.post(&url).headers(headers).send().await?,
+        Some(HttpMethod::PUT) => client.put(&url).headers(headers).send().await?,
+        Some(HttpMethod::DELETE) => client.delete(&url).headers(headers).send().await?,
+        Some(HttpMethod::PATCH) => client.patch(&url).headers(headers).send().await?,
+        _ => client.get(&url).headers(headers).send().await?,
+    };
+
+    if response.status().is_success() {
+        let body = response.text().await?;
+
+        // Deserialize the response body as JSON
+        let json_body: serde_json::Value = serde_json::from_str(&body)?;
+
+        // Check if the JSON path exists and contains the expected value
+        if json_path_exists(&json_body, json_path, expected_value) {
+            context
+                .connection
+                .hset::<_, _, _, usize>(&context.key, "available", true)
+                .await
+                .unwrap();
+        } else {
+            context
+                .connection
+                .hset::<_, _, _, usize>(&context.key, "available", false)
+                .await
+                .unwrap();
+        }
+    } else {
+        context
+            .connection
+            .hset::<_, _, _, usize>(&context.key, "available", false)
+            .await
+            .unwrap();
+    }
+
+    context
+        .connection
+        .hset::<_, _, _, usize>(
+            &context.key,
+            "last_health_check",
+            chrono::Utc::now().to_rfc3339(),
+        )
+        .await
+        .unwrap();
+
+    // todo: include latency in the health check
+
+    Ok(())
+}
+
+fn json_path_exists(json: &serde_json::Value, json_path: &str, expected_value: &serde_json::Value) -> bool {
+	let segments: Vec<&str> = json_path.split('.').collect();
+
+	let mut current_json = json;
+	for segment in segments {
+		if let Some(next_json) = current_json.get(segment) {
+			current_json = next_json;
+		} else {
+			return false;
+		}
+	}
+
+	current_json == expected_value
 }

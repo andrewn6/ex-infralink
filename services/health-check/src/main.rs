@@ -46,7 +46,8 @@ impl HealthCheckService for HealthCheckServer {
 pub async fn main() {
 	dotenv().unwrap();
 
-	let connection = Arc::new(Mutex::new(db::connection().await.unwrap()));
+	let connection = Arc::new(Mutex::new(db::redis_connection().await.unwrap()));
+	dotenv::dotenv().ok();
 
 	// Used for testing
 	// let tasks_map: Arc<Mutex<HashMap<String, HealthCheckTask>>> =

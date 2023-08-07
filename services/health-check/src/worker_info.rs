@@ -5,113 +5,117 @@ pub struct WorkerInfo {
     pub id: u64,
     #[prost(message, optional, tag = "2")]
     pub network: ::core::option::Option<Network>,
+    #[prost(message, repeated, tag = "3")]
+    pub health_checks: ::prost::alloc::vec::Vec<HealthCheck>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Network {
     #[prost(string, tag = "1")]
     pub primary_ipv4: ::prost::alloc::string::String,
-    #[prost(string, tag = "2")]
-    pub primary_ipv6: ::prost::alloc::string::String,
+    #[prost(string, optional, tag = "2")]
+    pub primary_ipv6: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct HealthCheck {
     #[prost(string, tag = "1")]
-    pub name: ::prost::alloc::string::String,
-    #[prost(enumeration = "Type", tag = "2")]
-    pub r#type: i32,
+    pub path: ::prost::alloc::string::String,
+    #[prost(uint64, tag = "2")]
+    pub port: u64,
     #[prost(string, tag = "3")]
-    pub endpoint: ::prost::alloc::string::String,
-    #[prost(uint32, tag = "4")]
-    pub frequency_seconds: u32,
-    #[prost(uint32, tag = "5")]
-    pub timeout_seconds: u32,
-    #[prost(enumeration = "HttpMethod", tag = "6")]
-    pub http_method: i32,
-    #[prost(string, tag = "7")]
-    pub exepcted_response_body: ::prost::alloc::string::String,
+    pub method: ::prost::alloc::string::String,
+    #[prost(bool, tag = "4")]
+    pub tls_skip_verification: bool,
+    #[prost(uint64, tag = "5")]
+    pub grace_period: u64,
+    #[prost(uint64, tag = "6")]
+    pub interval: u64,
+    #[prost(uint64, tag = "7")]
+    pub timeout: u64,
+    #[prost(uint64, tag = "8")]
+    pub max_failures: u64,
+    #[prost(enumeration = "HealthCheckType", tag = "9")]
+    pub r#type: i32,
+    #[prost(message, repeated, tag = "10")]
+    pub headers: ::prost::alloc::vec::Vec<Header>,
+    #[prost(message, optional, tag = "11")]
+    pub custom_health_check: ::core::option::Option<CustomHealthCheck>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct Header {
+    #[prost(string, tag = "1")]
+    pub key: ::prost::alloc::string::String,
+    #[prost(string, tag = "2")]
+    pub value: ::prost::alloc::string::String,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct CustomHealthCheck {
+    #[prost(enumeration = "CustomCheckType", tag = "1")]
+    pub check_type: i32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct ScheduleHealthCheckResponse {
     #[prost(string, tag = "1")]
     pub message: ::prost::alloc::string::String,
-    /// Results of health checks if you want immediate feedback
-    #[prost(message, repeated, tag = "2")]
-    pub health_check_statuses: ::prost::alloc::vec::Vec<HealthCheckStatus>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct HealthCheckStatus {
-    /// Name of the health check
-    #[prost(string, tag = "1")]
-    pub name: ::prost::alloc::string::String,
-    /// Whether the check passed or not
-    #[prost(bool, tag = "2")]
-    pub is_healthy: bool,
-    /// Any additional message or reason for failure
-    #[prost(string, tag = "3")]
-    pub message: ::prost::alloc::string::String,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
-pub enum Type {
-    Unknown = 0,
-    Ping = 1,
-    Http = 2,
+pub enum HealthCheckType {
+    Https = 0,
+    Http = 1,
+    Tcp = 2,
 }
-impl Type {
+impl HealthCheckType {
     /// String value of the enum field names used in the ProtoBuf definition.
     ///
     /// The values are not transformed in any way and thus are considered stable
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            Type::Unknown => "UNKNOWN",
-            Type::Ping => "PING",
-            Type::Http => "HTTP",
+            HealthCheckType::Https => "HTTPS",
+            HealthCheckType::Http => "HTTP",
+            HealthCheckType::Tcp => "TCP",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
-            "UNKNOWN" => Some(Self::Unknown),
-            "PING" => Some(Self::Ping),
+            "HTTPS" => Some(Self::Https),
             "HTTP" => Some(Self::Http),
+            "TCP" => Some(Self::Tcp),
             _ => None,
         }
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
-pub enum HttpMethod {
-    /// Default
-    Get = 0,
-    Post = 1,
-    Put = 2,
-    Delete = 3,
+pub enum CustomCheckType {
+    JsonValueExists = 0,
+    ResponseContainsString = 1,
+    ResponseStatus = 2,
 }
-impl HttpMethod {
+impl CustomCheckType {
     /// String value of the enum field names used in the ProtoBuf definition.
     ///
     /// The values are not transformed in any way and thus are considered stable
     /// (if the ProtoBuf definition does not change) and safe for programmatic use.
     pub fn as_str_name(&self) -> &'static str {
         match self {
-            HttpMethod::Get => "GET",
-            HttpMethod::Post => "POST",
-            HttpMethod::Put => "PUT",
-            HttpMethod::Delete => "DELETE",
+            CustomCheckType::JsonValueExists => "JSON_VALUE_EXISTS",
+            CustomCheckType::ResponseContainsString => "RESPONSE_CONTAINS_STRING",
+            CustomCheckType::ResponseStatus => "RESPONSE_STATUS",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
-            "GET" => Some(Self::Get),
-            "POST" => Some(Self::Post),
-            "PUT" => Some(Self::Put),
-            "DELETE" => Some(Self::Delete),
+            "JSON_VALUE_EXISTS" => Some(Self::JsonValueExists),
+            "RESPONSE_CONTAINS_STRING" => Some(Self::ResponseContainsString),
+            "RESPONSE_STATUS" => Some(Self::ResponseStatus),
             _ => None,
         }
     }

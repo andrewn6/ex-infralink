@@ -38,7 +38,7 @@ pub struct WorkerInfo {
 pub async fn cockroach_connection() -> Result<PgPool, Error> {
 	let db_url = dotenv!("COCKROACH_DB_URL");
 
-	let pool = PgPool::connect(db_url).await?;
+	let pool = PgPool::connect(db_url).await;
 	Ok(pool)
 }
 
@@ -68,6 +68,20 @@ pub async fn save_health_check_to_db(pool: &PgPool, health_check: HealthCheck) -
 	.await?;
 
 	Ok(())
+}
+
+pub async fn fetch_health_checks(pool: &PgPool) -> Result<Vec<HealthCheck>, SqlxError> {
+	let health_checks = sqlx::query_as!(
+		HealthCheck,
+		r#"
+			SELECT path, port, method, tls_skip_verification, timeout, interval, grace_period, max_failures, type, headers, custom_health_check
+			FROM health_checks
+		"#
+	)
+	.fetch_all(pool)
+	.await?;
+
+	Ok(health_checks)
 }
 
 fn deserialize_custom_health_check(custom_health_check: Option<&str>) -> Option<CustomCheckType> {

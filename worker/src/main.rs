@@ -69,27 +69,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
 	//let docker_service = MyDockerService::default();
 	//let container_stats_service = MyContainerStatsService {};
-	let healer = MyHealer {
-		docker,
-		create_options,
-		container_config,
-		healing: Arc::new(Mutex::new(false)),
-		healing_report: Arc::new(Mutex::new(Vec::new())),
-		container_healed_count: Counter::new("container_healed_count", "Number of containers healed").unwrap(),
-		heal_attempts: Arc::new(Mutex::new(HashMap::<String, u32>::new())),
-	};
-
-	let reflection_service = tonic_reflection::server::Builder::configure()
-		.register_encoded_file_descriptor_set(proto_memory::FILE_DESCRIPTOR_SET)
-		.build()
-		.unwrap();
 
 	println!("Worker listening on {}", addr);
 
 	Server::builder()
-		.add_service(GreeterServer::new(greeter))
-		.add_service(reflection_service)
-		.add_service(HealerServer::new(healer))
 		//.add_service(DockerServiceServer::new(docker_service))
 		//.add_service(ContainerStatsServiceServer::new(container_stats_service))
 		.serve(addr)

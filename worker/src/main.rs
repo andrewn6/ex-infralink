@@ -9,17 +9,7 @@ use prometheus::Counter;
 use bollard::Docker;
 use bollard::container::{Config, CreateContainerOptions};
 
-use hello_world::greeter_server::{Greeter, GreeterServer};
-use hello_world::{HelloReply, HelloRequest};
-
 pub mod container;
-
-mod healer {
-    pub mod healer;
-}
-
-use healer::healer::MyHealer;
-use proto_healer::healer_server::HealerServer;
 
 use container::logic::MyDockerService;
 use container::stats::MyContainerStatsService;
@@ -34,32 +24,6 @@ pub mod docker {
 	include!("docker.rs");
 }
 
-pub mod proto_healer {
-	include!("healer.rs");
-}
-
-mod hello_world {
-	include!("helloworld.rs");
-}
-
-mod proto_compute {
-	include!("compute.rs");
-}
-
-mod proto_memory {
-	include!("memory.rs");
-
-	pub(crate) const FILE_DESCRIPTOR_SET: &[u8] =
-		tonic::include_file_descriptor_set!("greeter_descriptor");
-}
-
-mod proto_storage {
-	include!("storage.rs");
-}
-
-mod proto_network {
-	include!("network.rs");
-}
 
 //#[derive(Default)]
 //pub struct MyDockerService {}

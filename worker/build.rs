@@ -3,14 +3,8 @@ use std::path::PathBuf;
 
 fn main() {
 	let proto_files = vec![
-		"./src/proto/memory/memory.proto",
-		"./src/proto/compute/compute.proto",
-		"./src/proto/network/network.proto",
-		"./src/proto/storage/storage.proto",
-		"./src/proto/helloworld.proto",
-		"./src/proto/container/container.proto",
-		"./src/proto/container/stats.proto",
-		"./src/proto/healer/healer.proto",
+		"./src/proto/container.proto",
+		"./src/proto/stats.proto",
 	];
 
 	let out_dir = PathBuf::from(env::var("OUT_DIR").unwrap());

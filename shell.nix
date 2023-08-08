@@ -2,7 +2,6 @@
 pkgs.mkShell {
   name = "dev-environment";
   buildInputs = [
-    pkgs.clickhouse
     pkgs.redis
     pkgs.rustc
     pkgs.cargo
@@ -14,4 +13,3 @@ pkgs.mkShell {
     echo "Infralink"
   '';
 }
-

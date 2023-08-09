@@ -81,19 +81,7 @@ pub async fn fetch_health_checks(pool: &PgPool) -> Result<Vec<HealthCheck>, Sqlx
 	.fetch_one(pool)
 	.await?;
 
-	Ok(HealthCheck {
-		path: row.path,
-		port: row.port as u64,
-		method: row.method,
-		tls_skip_verification: row.tls_skip_verification,
-		timeout: row.timeout,
-		interval: row.interval,
-		grace_period: row.grace_period,
-		max_failures: row.max_failures,
-		r#type: row.r#type,
-		headers: row.headers,
-		custom_health_check: row.custom_health_check,
-	})
+	Ok(rows)
 }
 
 fn deserialize_custom_health_check(custom_health_check: Option<&str>) -> Option<CustomCheckType> {

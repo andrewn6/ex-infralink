@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use sqlx::FromRow;
 
 // Enum for custom health check types
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -17,7 +18,7 @@ pub struct CustomHealthCheck {
 	pub check_type: CustomCheckType,
 }
 // Define a HealthCheckConfig struct for holding health check configuration.
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, FromRow)]
 pub struct HealthCheck {
 	// <origin>/{path}
 	pub path: String,

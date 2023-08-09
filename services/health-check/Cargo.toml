@@ -25,6 +25,7 @@ uuid = { version = "1.3.2", features = [
   "fast-rng", # Use a faster (but still sufficiently random) RNG
 ] }
 sqlx = { version = "0.7.1", features = ["runtime-tokio-rustls", "postgres", "time"] }
+bollard = "0.14.0"
 
 [build-dependencies]
 tonic-build = "0.8.4"

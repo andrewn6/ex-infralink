@@ -5,6 +5,10 @@ use redis::aio::Connection;
 use redis::AsyncCommands;
 use sqlx::{PgPool, Error as SqlxError};
 
+use bollard::container::{ListContainersOptions, InspectContainerOptions};
+use bollard::Docker;
+use std::collections::HashMap;
+
 use reqwest::header::{HeaderMap, HeaderName, HeaderValue};
 use reqwest::{Client, Error};
 use serde::{Deserialize, Serialize};
@@ -33,6 +37,7 @@ pub struct WorkerInfo {
 	pub id: u64,
 	// Worker networking information.
 	pub network: Network,
+	pub container_id: Option<String>,
 }
 
 pub async fn cockroach_connection() -> Result<PgPool, Error> {
@@ -167,6 +172,31 @@ pub async fn schedule_health_checks(
 	tasks
 }
 
+async fn detect_port(container_name: &str, docker: &Docker) -> Result<Option<u16>, bollard::errors::Error> {
+	let container = docker
+		.list_containers(Some(ListContainersOptions {
+			all: true,
+			..Default::default()
+		}))
+		.await?;
+
+	for container in containers {
+		if container.names.iter().any(|name| name == container_name) {
+			let details = docker 
+				.inspect_container(&container.id, None::<InspectContainerOptions>)
+				.await?;
+		if let Some(ports) = details.network_settings.port {
+			for port in ports.key() {
+				if let Some(host_ports) = ports.get(0) {
+						return Ok(Some(host_ports.host_port.parse::<u16>().unwrap()));
+					}
+				}
+			}
+		}
+	}
+
+	Ok(None)
+}
 /// This helper function constructs the URL for a health check.
 fn construct_url(worker: &WorkerInfo, config: &HealthCheck) -> String {
 	format!(

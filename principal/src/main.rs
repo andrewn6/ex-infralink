@@ -11,6 +11,10 @@ pub mod db;
 pub mod gpu;
 pub mod volumes;
 
+mod healer {
+    pub mod healer;
+}
+
 use volumes::volumes::{VolumeManager, HetznerVolumeConfig, VultrVolumeConfig, HetznerVolumeAttachmentConfig, HetznerVolumeResizeConfig, VultrVolumeDetachConfig, VultrVolumeAttachmentConfig};
 use manager::manager::{Manager, ManagerError, AnyInstance};
 
@@ -68,6 +72,7 @@ async fn handle_instances_request(
     }
 }
 
+/* 
 async fn handle_request(
     req: Request<Body>,
     manager: Arc<Manager>,
@@ -217,7 +222,9 @@ async fn handle_request(
 		_ => Ok(Response::builder().status(StatusCode::NOT_FOUND).body(Body::from("Not Found")).unwrap()),
 	}
 }
+*/
 
+/* 
 async fn process_request(
     req: Request<Body>,
     manager_arc: Arc<Manager>,
@@ -225,33 +232,10 @@ async fn process_request(
 ) -> Result<Response<Body>, Box<dyn Error + Send + Sync>> {
     handle_request(req, manager_arc, volume_manager).await
 }
+*/
+
 
 #[tokio::main]
 async fn main() {
-    dotenv().ok(); 
-
-    let manager = Manager::new().await.expect("Failed to create manager");
-    let manager_arc = Arc::new(manager);
-    
-    let volume_manager = Arc::new(Mutex::new(VolumeManager::volume()));
-
-    let make_svc = make_service_fn(move |_conn| {
-        let manager_clone = manager_arc.clone();
-        let volume_manager_clone = volume_manager.clone(); // Add this line
-        async {
-            Ok::<_, hyper::Error>(service_fn(move |req: Request<Body>| {
-                let manager_inner_clone = manager_clone.clone();
-                process_request(req, manager_inner_clone, volume_manager_clone.clone()) // Add volume_manager parameter
-            }))
-        }
-    });
-
-    let addr = ([127, 0, 0, 1], 3000).into();
-    let server = Server::bind(&addr).serve(make_svc);
-
-    println!("Server started on http://{}", addr);
-
-    if let Err(e) = server.await {
-        eprintln!("server error: {}", e);
-    }
+    dotenv().ok(); // Load .env file
 }

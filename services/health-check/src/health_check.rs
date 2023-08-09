@@ -71,17 +71,29 @@ pub async fn save_health_check_to_db(pool: &PgPool, health_check: HealthCheck) -
 }
 
 pub async fn fetch_health_checks(pool: &PgPool) -> Result<Vec<HealthCheck>, SqlxError> {
-	let health_checks = sqlx::query_as!(
+	let row = sqlx::query_as!(
 		HealthCheck,
 		r#"
 			SELECT path, port, method, tls_skip_verification, timeout, interval, grace_period, max_failures, type, headers, custom_health_check
 			FROM health_checks
 		"#
 	)
-	.fetch_all(pool)
+	.fetch_one(pool)
 	.await?;
 
-	Ok(health_checks)
+	Ok(HealthCheck {
+		path: row.path,
+		port: row.port as u64,
+		method: row.method,
+		tls_skip_verification: row.tls_skip_verification,
+		timeout: row.timeout,
+		interval: row.interval,
+		grace_period: row.grace_period,
+		max_failures: row.max_failures,
+		r#type: row.r#type,
+		headers: row.headers,
+		custom_health_check: row.custom_health_check,
+	})
 }
 
 fn deserialize_custom_health_check(custom_health_check: Option<&str>) -> Option<CustomCheckType> {
@@ -133,6 +145,7 @@ pub async fn schedule_health_checks(
 					worker: &worker_clone,
 					config: &config_clone,
 					region,
+					pool,
 				})
 				.await
 				{
@@ -203,9 +216,15 @@ pub struct HealthCheckContext<'a> {
 	pub worker: &'a WorkerInfo,
 	pub config: &'a HealthCheck,
 	pub region: &'a str,
+	pub pool: Option<&'a PgPool>,
 }
 
 async fn run_http_health_check(context: &mut HealthCheckContext<'_>) -> Result<(), Error> {
+	if let Some(pool) = context.pool {
+		let db_config = fetch_health_checks(&pool).await?;
+		context.config = db_config;
+	}
+
 	let url = construct_url(context.worker, context.config);
 	let headers = construct_headers(context.config);
 
@@ -239,14 +258,6 @@ async fn run_http_health_check(context: &mut HealthCheckContext<'_>) -> Result<(
 		)
 		.await
 		.unwrap();
-	
-	/* 
-	if let Some(custom_check) = &context.custom_check {
-		if let Err(e) = // {
-			todo!()
-		}
-	}
-	*/
 
 	Ok(())
 }
